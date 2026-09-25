@@ -5,9 +5,31 @@ description: "Set up KindHuman in an agent, choose sources and a check-in schedu
 
 # kindhuman-start
 
-Read the operating contract, agent adapter, and source guide below. Start locally: let the person choose a source, then offer the recommended **Inquisitive companion** voice—warm, curious, practical and gently helpful, with a Baymax-like instinct to make the next step easier. Let them keep it or choose another communication style and Q&A lens. Do not require a KindHuman account before the first local Moment. Upload policy is review-first, already settled.
+## Begin with something that matters
 
-Use `kh init --timezone ZONE --rhythm "CHOSEN RHYTHM" --style "Inquisitive companion" --lens "self-reflection"`. Do not set a default cadence or overwrite an existing configuration. Let the person choose the communication style and Q&A lens in the intro; keep the recommended Inquisitive companion if they do not want to decide. Let them select the current conversation, a bounded excerpt, pasted text or a pasted conversation link. Read only that selected material and create a local Moment candidate before asking for an account. If the link cannot be read, ask the person to paste the excerpt or export it. Q&A is optional and user-triggered. If there is no item, invite the person to share something that stayed with them today. Do not postpone all value until a timer fires.
+Read the operating contract before acting. Help the person understand the purpose before showing configuration or commands. Use your own natural wording, guided by this opening:
+
+> KindHuman helps you keep the moments that reveal what matters to you, in your own words. Over time, they can become a living picture of your values and the people and experiences that shape them.
+>
+> We can start with a few lines or a conversation link you choose. Or I can ask one question to help you find a starting point. Which feels easier?
+
+If they already supplied something, begin there instead of asking them to choose again. Explain briefly that the first draft stays in a local folder they can edit; an account is only needed when they choose to upload. Do not promise that a host model processes text offline.
+
+Use an inquisitive companion voice: attentive, practical, gently curious. Ask one useful question at a time. Offer a different tone without making style selection a gate. Do not imitate a fictional character, flatter, diagnose, or claim to know the person deeply from one excerpt. Let their preferred language and pace guide you.
+
+## Let them recognize themselves
+
+Read only the selected excerpt or conversation. If a link cannot be read, explain that limitation and invite pasted text. A saved URL alone is not a connected source. Preserve the exact selected original and provenance locally. Keep work ethics, choices and the meaning of work when relevant; do not collect task output merely because it is available.
+
+Reflect one specific detail before proposing a label. For example, after a person describes their grandmother making room at a crowded table: “You mentioned that she always found another chair. Was making people feel welcome the part you want to keep, or was it something else?” This is an example, never a fact to insert into a person's profile.
+
+Offer a tentative value in their language and let them correct, rename, reject or defer it. An island is a person, place, relationship or experience where a value comes alive. Introduce that idea only when there is material for it; never require a complete tree or sort everyone into Family/Work/Now. Their profile can change. Keep interpretations separate from originals and preserve corrections rather than repeatedly proposing a rejected label.
+
+Show the local draft and its actual file path. Explain what was kept, what is interpretation, and what they can edit. The first success is a small piece that feels recognizably theirs, not a completed setup checklist. Do not claim that locally discussed values have been saved to the website: use only supported upload commands, and direct the person to the private profile editor for reviewed values/islands while CLI profile synchronization remains unavailable.
+
+## Fit the practice to their life
+
+Read the source and agent guides when configuring. Use `kh init --timezone ZONE --rhythm "CHOSEN RHYTHM" --style "CHOSEN STYLE" --lens "self-reflection"` with the person's choices; never overwrite an existing configuration. Offer the recommended Inquisitive companion voice if they do not want to choose. Cadence belongs to the person; do not invent or register one. Let them experience a useful reflection before presenting scheduling questions. A philosopher Q&A is an optional tool when requested or welcomed, not an onboarding requirement.
 
 Only when the person chooses to upload, connect to the intended deployed app: create an agent token in `/app/setup`, provide it through the host credential mechanism as `KH_TOKEN`, and run `kh account connect --server https://HOST`. Verify the account and read its preferences with `kh account status`. Do not paste tokens into chat or command arguments. Reconcile source and cadence preferences with the person; do not silently overwrite a native schedule.
 

@@ -50,15 +50,7 @@ kh inbox list
 kh inbox show --id ITEM_ID
 ```
 
-Show the person the exact content and provenance. Only after their decision:
-
-```sh
-kh review --id ITEM_ID --digest DIGEST_FROM_SHOW --decision approve
-kh schedule-prompt
-kh status
-```
-
-That approval is local and does not authorize server upload. To connect, create an agent token in the app's `/app/setup` and provide `KH_TOKEN` through your credential manager (never paste it into chat, command arguments or Git):
+For a connected save, create an agent token in the app's `/app/setup` and provide `KH_TOKEN` through your credential manager (never paste it into chat, command arguments or Git). Connect before asking for upload approval so the person reviews the account and payload together:
 
 ```sh
 kh account connect --server https://YOUR_KINDHUMAN_HOST
@@ -69,7 +61,9 @@ kh upload approve --id ITEM_ID --hash REVIEW_HASH
 kh upload send --id ITEM_ID
 ```
 
-`send` verifies the saved record and returns its real private URL. Retry the same item after uncertain delivery. Changed content or accounts require another review. Read [the connected API guide](docs/server-contract.md) for token handling, limits and recovery. The scheduler prompt must be registered through the agent's real native tools at the user's chosen time; printing it does not schedule a run.
+`send` verifies the saved record and returns its real private URL. Run `kh schedule-prompt` to prepare the chosen follow-up and `kh status` to inspect local state. Retry the same item after uncertain delivery. Changed content or accounts require another review. Read [the connected API guide](docs/server-contract.md) for token handling, limits and recovery. The scheduler prompt must be registered through the agent's real native tools at the user's chosen time; printing it does not schedule a run.
+
+For an offline-only decision, `kh review --id ITEM_ID --digest DIGEST --decision approve|dismiss` preserves a local review. Such an approval needs a fresh destination-bound review before server upload.
 
 Default state is `~/.kindhuman`; choose a different private directory with `KH_HOME` or `--home`. State files contain personal text. Keep them outside Git, synced skills and public directories. Local permissions are not encryption. Agent processing may still use the user's model provider; the guarantee is no upload to **KindHuman** before review. Only the explicit reviewed `upload send` command sends capture contents to KindHuman. Account and read commands use authenticated HTTPS. The token is never persisted by the CLI.
 

@@ -11,8 +11,12 @@ Use `kh source add` for a new explicit selection and `kh source list` to inspect
 
 Show a concise source card: what is included, where collection runs, last success, and any action needed. Do not place OAuth tokens in locator/scope fields. Use `kh source pause --id ID` or `kh source resume --id ID` for local collection control. For changes or credential revocation not supported by the CLI, explain the exact limitation and use the connector's native controls; do not keep reading a paused source.
 
+For a connected account, use `kh account status` to read server source preferences as well. Server records and local source IDs are separate configuration; establish the mapping with the user during setup. Do not treat a server scope as permission to read unrelated local paths. A paused preference stops collection even if the other copy is enabled.
+
 ## References
 
 - [Operating contract](references/contract.md): read before acting.
 - [Source connections](references/sources.md): read when gathering or configuring sources.
 - [Agent adapters](references/agents.md): read for setup, scheduling, installation or delivery diagnosis.
+
+- [Connected API and review flow](references/server-contract.md): read for account connection, reviewed uploads, read-back and recovery.

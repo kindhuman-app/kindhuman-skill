@@ -4,13 +4,14 @@ Turn selected conversations, reading and transcripts into a continuing practice:
 
 For **Codex, Cursor and Meta Muse Code**. Each person chooses sources, boundaries, cadence and timezone during setup. Every scheduled check-in offers an invitation, including when no new material arrives. **Nothing is uploaded to KindHuman before the person reviews it.**
 
-## What works in 0.1.0
+## What works in 0.2.0
 
 - Nine portable skills with source, review and agent-specific guidance.
 - A dependency-free Node CLI that installs skills, configures a private local inbox, collects selected text/transcript files, deduplicates captures and records exact-content review decisions.
 - Source pause/resume, collection health, a schedule prompt and empty-inbox reflection invitation.
+- Account connection via per-agent tokens, exact account-bound upload review, private text uploads, retry deduplication and verified read-back URLs.
 
-**Not implemented:** KindHuman account login, server uploads, live memory lanes for new users, remote-source connector clients, native scheduler registration, Snapshot persistence or publication. Their workflows and required server contract are documented; they are not simulated. This is a usable local foundation, not a completed multi-tenant launch.
+**Not implemented in the CLI:** OAuth device login, remote-source connector clients, native scheduler registration, binary uploads, Snapshot creation, record editing or publication. Use the app for reviewed editing, Snapshots and sharing. Connect only to a deployment serving the new agent API.
 
 ## Install
 
@@ -57,9 +58,20 @@ kh schedule-prompt
 kh status
 ```
 
-Approval is local and does not upload anything. A changed payload requires another review. The scheduler prompt must be registered through the agent's real native tools at the user's chosen time; printing it does not schedule a run.
+That approval is local and does not authorize server upload. To connect, create an agent token in the app's `/app/setup` and provide `KH_TOKEN` through your credential manager (never paste it into chat, command arguments or Git):
 
-Default state is `~/.kindhuman`; choose a different private directory with `KH_HOME` or `--home`. State files contain personal text. Keep them outside Git, synced skills and public directories. Local permissions are not encryption. Agent processing may still use the user's model provider; the guarantee is no upload to **KindHuman** before review. This CLI has no network transport.
+```sh
+kh account connect --server https://YOUR_KINDHUMAN_HOST
+kh account status
+kh upload preview --id ITEM_ID
+# Show the exact preview and destination, then obtain human approval.
+kh upload approve --id ITEM_ID --hash REVIEW_HASH
+kh upload send --id ITEM_ID
+```
+
+`send` verifies the saved record and returns its real private URL. Retry the same item after uncertain delivery. Changed content or accounts require another review. Read [the connected API guide](docs/server-contract.md) for token handling, limits and recovery. The scheduler prompt must be registered through the agent's real native tools at the user's chosen time; printing it does not schedule a run.
+
+Default state is `~/.kindhuman`; choose a different private directory with `KH_HOME` or `--home`. State files contain personal text. Keep them outside Git, synced skills and public directories. Local permissions are not encryption. Agent processing may still use the user's model provider; the guarantee is no upload to **KindHuman** before review. Only the explicit reviewed `upload send` command sends capture contents to KindHuman. Account and read commands use authenticated HTTPS. The token is never persisted by the CLI.
 
 ## Skill catalogue
 
@@ -81,9 +93,9 @@ Default state is `~/.kindhuman`; choose a different private directory with `KH_H
 - [Source connections and limits](docs/sources.md)
 - [Codex, Cursor and Muse adapters](docs/agents.md)
 - [Architecture audit and hosting options](docs/architecture.md)
-- [Proposed server API contract](docs/server-contract.md)
+- [Connected server API contract](docs/server-contract.md)
 - [Delivery plan and acceptance scenarios](docs/roadmap.md)
 
-Run `npm test` and `npm run check`. Tests use isolated temporary folders and do not connect to personal sources or KindHuman servers. Native agent discovery, scheduling and server integration still need end-to-end verification in each target product.
+Run `npm test` and `npm run check`. Tests use isolated temporary folders and do not connect to personal sources or KindHuman servers. The connected CLI also has a real-server verification script, run by the app integration suite against two synthetic accounts. Native agent discovery and scheduling still need verification in each target product.
 
 This repository does not currently grant an open-source license. Choose licensing and public visibility before distributing it openly.

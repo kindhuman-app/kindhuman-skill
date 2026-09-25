@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const check = process.argv.includes('--check');
 for (const skill of fs.readdirSync(path.join(root, 'skills'))) {
-  for (const name of ['contract', 'sources', 'agents']) {
+  for (const name of ['contract', 'sources', 'agents', 'server-contract']) {
     const source = fs.readFileSync(path.join(root, 'docs', `${name}.md`), 'utf8');
     const target = path.join(root, 'skills', skill, 'references', `${name}.md`);
     if (check) {

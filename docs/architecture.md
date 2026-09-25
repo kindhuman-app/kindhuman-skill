@@ -1,3 +1,5 @@
+> Historical pre-refactor audit. The Prisma multi-tenant refactor supersedes the fixed-owner findings below. Current interfaces and limitations are in [server-contract.md](server-contract.md). The Supabase/editor alternative is preserved on the app repository's `codex/archive-supabase-editor-20260925` branch; Prisma/NextAuth is canonical.
+
 # Architecture study: multi-user memory lanes without per-user domains
 
 Reviewed 2026-09-25 against the local `kindhuman-main` working tree. It contains uncommitted server changes; this is a code-level study, not proof of the deployed production state. No database, DNS, hosting subscription or production app was changed by this library release.

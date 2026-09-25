@@ -30,7 +30,7 @@ test('capture preserves original text, deduplicates, and requires exact review d
   assert.notEqual(call('review', '--id', first.id, '--digest', 'wrong', '--decision', 'approve').status, 0);
   assert.equal(run('review', '--id', first.id, '--digest', first.digest, '--decision', 'approve').uploaded, false);
   assert.equal(run('status').approvedLocal, 1);
-  assert.equal(run('status').server, 'not-integrated');
+  assert.equal(run('status').server, 'not-connected');
   const p = path.join(home, 'inbox', `${first.id}.json`);
   const edited = JSON.parse(fs.readFileSync(p)); edited.originalText += ' altered'; fs.writeFileSync(p, JSON.stringify(edited));
   assert.notEqual(call('review', '--id', first.id, '--digest', first.digest, '--decision', 'approve').status, 0);

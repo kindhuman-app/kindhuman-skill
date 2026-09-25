@@ -16,3 +16,5 @@ Do not claim binary media, automatic transcription, URL fetching or cross-agent 
 - [Operating contract](references/contract.md): read before acting.
 - [Source connections](references/sources.md): read when gathering or configuring sources.
 - [Agent adapters](references/agents.md): read for setup, scheduling, installation or delivery diagnosis.
+
+- [Connected API and review flow](references/server-contract.md): read for account connection, reviewed uploads, read-back and recovery.

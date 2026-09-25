@@ -100,3 +100,48 @@ test('path traversal IDs, symlink state, and concurrent mutation are refused', t
   const alias = path.join(base, 'alias'); fs.symlinkSync(home, alias);
   assert.notEqual(call('status', '--home', alias).status, 0);
 });
+test('install stamps version, status reports it, uninstall removes only its own files', t => {
+  const base = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'kh-install-')));
+  t.after(() => fs.rmSync(base, { recursive: true, force: true }));
+  const home = path.join(base, 'private');
+  function gcall(...args) { return spawnSync(process.execPath, [cli, ...args], { env: { ...process.env, HOME: base, KH_HOME: home }, encoding: 'utf8' }); }
+  function grun(...args) { const result = gcall(...args); assert.equal(result.status, 0, result.stderr); return JSON.parse(result.stdout); }
+  const pkg = JSON.parse(fs.readFileSync(path.join(base === '' ? '' : path.dirname(cli), '..', 'package.json'), 'utf8'));
+  const installed = grun('install', '--agent', 'all', '--global');
+  assert.equal(installed.version, pkg.version);
+  const marker = path.join(base, '.agents', 'skills', '.kindhuman-install.json');
+  assert.equal(JSON.parse(fs.readFileSync(marker, 'utf8')).version, pkg.version);
+  grun('init', '--timezone', 'Australia/Melbourne', '--rhythm', 'Weekdays at 19:30');
+  const fresh = grun('status');
+  assert.equal(fresh.skillInstalls.length, 1);
+  assert.equal(fresh.skillInstalls[0].current, true);
+  assert.ok(fresh.skillInstalls[0].skills.includes('kindhuman-start'));
+  const stamp = JSON.parse(fs.readFileSync(marker, 'utf8')); stamp.version = '0.0.0';
+  fs.writeFileSync(marker, JSON.stringify(stamp));
+  assert.equal(grun('status').skillInstalls[0].current, false);
+  stamp.version = pkg.version; fs.writeFileSync(marker, JSON.stringify(stamp));
+  assert.notEqual(gcall('install', '--agent', 'all', '--global').status, 0);
+  const removed = grun('uninstall', '--agent', 'all', '--global');
+  assert.ok(removed.removed.includes(marker));
+  assert.equal(fs.existsSync(path.join(base, '.agents', 'skills', 'kindhuman-start')), false);
+  assert.equal(grun('status').skillInstalls.length, 0);
+  assert.notEqual(gcall('uninstall', '--agent', 'all', '--global').status, 0);
+  const foreign = path.join(base, '.agents', 'skills', 'kindhuman-start');
+  fs.mkdirSync(foreign, { recursive: true });
+  fs.writeFileSync(path.join(foreign, 'SKILL.md'), '---\nname: kindhuman-start\n---\nnot installed by kh');
+  assert.notEqual(gcall('uninstall', '--agent', 'all', '--global').status, 0);
+  assert.equal(fs.existsSync(foreign), true);
+});
+test('project install and uninstall roundtrip keeps the inbox untouched', t => {
+  const { base, home, run, call } = setup(t);
+  const project = path.join(base, 'project');
+  run('install', '--agent', 'all', '--project', project);
+  assert.equal(fs.existsSync(path.join(project, '.agents', 'skills', '.kindhuman-install.json')), true);
+  const file = path.join(base, 'note.txt'); fs.writeFileSync(file, 'Keep me.');
+  run('source', 'add', '--id', 'note', '--kind', 'file', '--locator', file, '--scope', 'This note');
+  run('collect', '--source', 'note');
+  run('uninstall', '--agent', 'all', '--project', project);
+  assert.equal(fs.existsSync(path.join(project, '.agents', 'skills')), true);
+  assert.equal(fs.existsSync(path.join(project, '.agents', 'skills', 'kindhuman-start')), false);
+  assert.equal(fs.readdirSync(path.join(home, 'inbox')).length, 1);
+});

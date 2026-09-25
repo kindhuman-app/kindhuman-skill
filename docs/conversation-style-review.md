@@ -44,9 +44,11 @@ living page, we'll connect your account and review exactly what to send.
 Keep your password and connection token out of this conversation. Once connected,
 I'll show the destination account and complete Moment for your approval.
 
-After actual upload/read-back, show the returned private URL. Explain that the
-current CLI uploads Moments; reviewed values and islands are edited on the private
-profile page. Do not imply automatic profile synchronization exists.
+After actual upload/read-back, show the returned private URL. Then offer: “Shall we put ‘making room’ on your living page too? I’ll show you
+the exact wording first.” Use the separate profile preview/approval/send flow,
+with optional profile access selected in setup. Show existing profile changes,
+retain the editable local file, and open the returned private profile URL after
+read-back. Do not imply automatic synchronization.
 
 Later, invite cadence without blocking the first win: “Would you like to come back
 when something matters, or have a regular check-in?” Register a schedule only when

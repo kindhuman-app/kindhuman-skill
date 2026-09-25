@@ -72,3 +72,57 @@ The CLI writes `awaiting-confirmation` before POST. It marks `synced` only after
 `kh status` is a local snapshot, not live authentication. Use `account status` to check token health. `account disconnect` removes local account binding but does not revoke the token; revoke in setup. Neither disconnect nor retry deletes source material.
 
 Snapshot creation, editing, media upload and public sharing use the app's reviewed browser flow; the CLI has no mutation commands for them. Source connector clients and native scheduler registration remain agent responsibilities. Do not bypass the browser's session or origin checks.
+
+## Reviewed values, islands and communication style
+
+Requires an app with `/api/v1/identity`. In account setup, explicitly select the
+optional reviewed-profile access when creating the connection. Existing Moment-only
+tokens cannot read or write profiles; a 403 means a new appropriately scoped
+connection is needed, not that the person's draft should be discarded.
+
+```sh
+kh profile init
+kh profile show
+# The person and agent edit KH_HOME/profile.json locally.
+kh profile preview
+# Show previous and proposed profiles, removed IDs, account and server.
+kh profile approve --hash REVIEW_HASH
+kh profile send
+```
+
+`init` and `show` work without an account. Only `send` uploads profile content.
+Example local draft (replace the example with the person's words):
+
+```json
+{
+  "version": 1,
+  "communicationStyle": "Ask gently, one question at a time.",
+  "nodes": [{
+    "id": "making-room", "kind": "value", "label": "Making room",
+    "meaning": "There is space for someone before they have to ask.",
+    "state": "accepted", "origin": "agent",
+    "momentIds": [], "localMomentIds": ["LOCAL_CAPTURE_ID"], "valueIds": []
+  }]
+}
+```
+
+Keep unreviewed inferences `proposed` locally. Upload requires each item to be
+explicitly `accepted` or `rejected`. An island uses kind `island` and links to
+accepted value IDs through `valueIds`. Keep rejected suggestions so they are not
+repeated; remove them only at the person's request. Preserve original attribution.
+
+Upload supporting Moments first. `localMomentIds` resolve only from verified upload
+receipts for the connected server/account; `momentIds` hold already saved Moment
+IDs. Preview shows the resolved exact document and the previous remote version,
+including IDs that would disappear. It does not merge or delete items automatically.
+If the website already has a profile, reconcile it into the editable local draft
+with the person before approval. Never approve an empty draft over an existing
+profile just to complete setup.
+
+Approval binds draft, resolved document, server, account and base revision. Edits,
+changed sources or a newer web revision require another review. `send` reads back
+wording, states and references before reporting success and returning `/app/identity`.
+It preserves the local file. Retrying an uncertain send reads the matching next
+revision before attempting another write. Unexpected changes remain pending;
+inspect and re-review, never force an overwrite. This is explicit reviewed upload,
+not automatic two-way synchronization. Node timestamps are assigned by the server.

@@ -25,7 +25,7 @@ Reflect one specific detail before proposing a label. For example, after a perso
 
 Offer a tentative value in their language and let them correct, rename, reject or defer it. An island is a person, place, relationship or experience where a value comes alive. Introduce that idea only when there is material for it; never require a complete tree or sort everyone into Family/Work/Now. Their profile can change. Keep interpretations separate from originals and preserve corrections rather than repeatedly proposing a rejected label.
 
-Show the local draft and its actual file path. Explain what was kept, what is interpretation, and what they can edit. The first success is a small piece that feels recognizably theirs, not a completed setup checklist. Do not claim that locally discussed values have been saved to the website: use only supported upload commands, and direct the person to the private profile editor for reviewed values/islands while CLI profile synchronization remains unavailable.
+Show the local draft and its actual file path. Explain what was kept, what is interpretation, and what they can edit. The first success is a small piece that feels recognizably theirs, not a completed setup checklist. Use `kh profile init` to keep values, islands and their communication preference in editable `profile.json`, separately from source Moments. Keep suggestions proposed until the person accepts or rejects them. Show the actual path, not a placeholder.
 
 ## Fit the practice to their life
 
@@ -35,6 +35,8 @@ Only when the person chooses to upload, connect to the intended deployed app: cr
 
 Let the person edit the local candidate in the private inbox folder. Editing changes proposed display words but preserves the exact original and provenance. Run `kh upload preview --id ID` and show the entire payload, provenance, communication style, Q&A lens, server and account. After the person's approval, record that exact decision using `kh upload approve --id ID --hash REVIEW_HASH`, then run `kh upload send --id ID`. It verifies the server receipt by read-back and returns the real private URL. Open that URL; if any step fails, retain the candidate and identify the pending step. Old approved-local decisions require a fresh account-bound review.
 Generate `kh schedule-prompt`, register it using the agent's native scheduler at the user's chosen cadence, and read back registration and next run/expiry. The local CLI will still report not-registered because it has no native scheduler integration; the native scheduler is the evidence. End with precise status: source verified, first candidate reviewed, server result, and next check-in. A failed step should have a recovery action, not a generic setup-complete message.
+
+When the person wants their values on the living page, read the profile section of the connected API reference. Upload supporting Moments first, then run `kh profile preview`. Explain the proposed meaning in ordinary language and show existing items that would be removed. After explicit approval, use `kh profile approve --hash REVIEW_HASH` and `kh profile send`; open the returned private profile URL only after read-back succeeds. This needs the optional profile permission in account setup. Do not call a local discussion, account connection or approval a saved online profile.
 
 ## References
 

@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url';
 import { createHash, randomUUID } from 'node:crypto';
 
 import { connectedCommand } from './server.mjs';
+import { profileCommand } from './profile.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const fail = message => { throw new Error(message); };
@@ -110,7 +111,7 @@ async function run() {
     source: ['home', 'id', 'kind', 'locator', 'scope'], collect: ['home', 'source'],
     capture: ['home', 'source', 'file', 'origin'], edit: ['home', 'id', 'file'], inbox: ['home', 'id'],
     review: ['home', 'id', 'digest', 'decision'], 'check-in': ['home'], status: ['home'],
-    'schedule-prompt': ['home'], account: ['home','server'], upload: ['home','id','hash'], moments: ['home','id'], help: []
+    'schedule-prompt': ['home'], account: ['home','server'], upload: ['home','id','hash'], moments: ['home','id'], profile: ['home','hash'], help: []
   };
   if (!command || command === 'help') {
     console.log(`KindHuman 0.2.0: local capture, account connection and reviewed private uploads.
@@ -133,14 +134,16 @@ kh account status|disconnect [--home PATH]
 kh upload preview --id ID [--home PATH]
 kh upload approve --id ID --hash REVIEW_HASH [--home PATH] # only after human approval
 kh upload send --id ID [--home PATH]
+kh profile init|show|preview|send [--home PATH]
+kh profile approve --hash REVIEW_HASH [--home PATH] # only after human approval
 kh moments list [--home PATH]
 kh moments show --id SERVER_ID [--home PATH]
-Default private local data: KH_HOME or ~/.kindhuman. Only upload send transfers reviewed content. No command registers a schedule.`);
+Default private local data: KH_HOME or ~/.kindhuman. Only upload send and profile send transfer reviewed content. No command registers a schedule.`);
     return;
   }
   if (!allowed[command]) fail(`Unknown command: ${command}`);
   for (const key of Object.keys(flags)) if (!allowed[command].includes(key)) fail(`Unknown option --${key} for ${command}`);
-  if (words.length > (['source', 'inbox', 'edit', 'account', 'upload', 'moments'].includes(command) ? 2 : 1)) fail('Unexpected positional argument');
+  if (words.length > (['source', 'inbox', 'edit', 'account', 'upload', 'moments', 'profile'].includes(command) ? 2 : 1)) fail('Unexpected positional argument');
   if (command === 'install') return install(flags);
   const home = path.resolve(flags.home || process.env.KH_HOME || path.join(os.homedir(), '.kindhuman'));
   return locked(home, () => {
@@ -155,6 +158,7 @@ Default private local data: KH_HOME or ~/.kindhuman. Only upload send transfers 
       return output({ home, style, lens, next: 'Add a selected source, capture a real item, run a local Q&A, then decide whether to connect an account for upload.' });
     }
     const c = config(home);
+    if (command === 'profile') return profileCommand({action,flags,home,c,need,safeId,readJSON,writeJSON,output});
     if (['account','upload','moments'].includes(command)) return connectedCommand({command,action,flags,home,c,need,safeId,readJSON,writeJSON,output});
     if (command === 'source') {
       if (action === 'list') return output(c.sources);

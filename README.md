@@ -65,7 +65,17 @@ kh upload send --id ITEM_ID
 
 For an offline-only decision, `kh review --id ITEM_ID --digest DIGEST --decision approve|dismiss` preserves a local review. Such an approval needs a fresh destination-bound review before server upload.
 
-Default state is `~/.kindhuman`; choose a different private directory with `KH_HOME` or `--home`. State files contain personal text. Keep them outside Git, synced skills and public directories. Local permissions are not encryption. Agent processing may still use the user's model provider; the guarantee is no upload to **KindHuman** before review. Only the explicit reviewed `upload send` command sends capture contents to KindHuman. Account and read commands use authenticated HTTPS. The token is never persisted by the CLI.
+Default state is `~/.kindhuman`; choose a different private directory with `KH_HOME` or `--home`. State files contain personal text. Keep them outside Git, synced skills and public directories. Local permissions are not encryption. Agent processing may still use the user's model provider; the guarantee is no upload to **KindHuman** before review. Only explicit reviewed `upload send` and `profile send` commands send capture or profile content to KindHuman. Account and read commands use authenticated HTTPS. The token is never persisted by the CLI.
+
+## Your editable local profile
+
+`kh profile init` creates `profile.json` in your private home without an account.
+Your agent helps you shape values and islands there in your own words. When ready,
+use `profile preview`, approve its exact hash, then `profile send`. Select optional
+profile access when creating your agent connection. Supporting Moments must already
+be uploaded. See the [profile contract](docs/server-contract.md#reviewed-values-islands-and-communication-style)
+for the editable format and conflict recovery. The CLI keeps your local draft and
+confirms the saved profile before returning its private URL.
 
 ## Skill catalogue
 

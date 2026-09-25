@@ -73,7 +73,7 @@ The CLI writes `awaiting-confirmation` before POST. It marks `synced` only after
 
 Snapshot creation, editing, media upload and public sharing use the app's reviewed browser flow; the CLI has no mutation commands for them. Source connector clients and native scheduler registration remain agent responsibilities. Do not bypass the browser's session or origin checks.
 
-## Reviewed values, islands and communication style
+## Reviewed values, chapters and communication style
 
 Requires an app with `/api/v1/identity`. In account setup, explicitly select the
 optional reviewed-profile access when creating the connection. Existing Moment-only
@@ -107,7 +107,8 @@ Example local draft (replace the example with the person's words):
 ```
 
 Keep unreviewed inferences `proposed` locally. Upload requires each item to be
-explicitly `accepted` or `rejected`. An island uses kind `island` and links to
+explicitly `accepted` or `rejected`. A chapter uses kind `chapter` (`island`
+is still accepted as a legacy alias) and links to
 accepted value IDs through `valueIds`. Keep rejected suggestions so they are not
 repeated; remove them only at the person's request. Preserve original attribution.
 

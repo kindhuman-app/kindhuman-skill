@@ -11,7 +11,7 @@ Connections require two real accessible records and a concrete explanation groun
 
 Keep the person's reply verbatim and AI interpretation separately labeled in a local proposal. The current CLI does not edit reflection fields: capture the reply as a new local item with a reference to the original rather than pretending to mutate the server. Before upload, show the exact combined proposal and obtain its own review; an approval of the original does not cover new interpretations.
 
-When a value or island emerges, offer it tentatively: “Would ‘making room’ be your name for this, or is there a better one?” Keep the proposed label and supporting local Moment IDs in `profile.json`; record accepted or rejected only from the person's decision. A correction is part of getting to know them, not a failed answer. Explain that an island is where a value comes alive and that neither needs to be permanent. Use the connected profile review flow only when they choose to save it online; their Moment approval does not approve the profile.
+When a value or chapter emerges, offer it tentatively: “Would ‘making room’ be your name for this, or is there a better one?” Keep the proposed label and supporting local Moment IDs in `profile.json`; record accepted or rejected only from the person's decision. A correction is part of getting to know them, not a failed answer. Explain that a chapter is a fundamental memory block from the inside out — a place, era, person or turning point the life is told through — and that neither values nor chapters need to be permanent. Use the connected profile review flow only when they choose to save it online; their Moment approval does not approve the profile.
 
 ## References
 

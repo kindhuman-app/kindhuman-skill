@@ -31,7 +31,9 @@ Does that last line fit, or would you change it?
 **Person:** Keep it. How does this become my profile?
 
 **Agent:** We can gather small pieces like this over time. A value names something
-that matters to you. An island is where it comes alive: perhaps Nana's table.
+that matters to you. A chapter is a fundamental memory block from the inside
+out — a place, era, person or turning point your life is told through:
+perhaps Nana's table.
 You can change either. You don't need to decide your whole identity today.
 
 Your draft is in the local folder [show the actual saved path]. You can edit it

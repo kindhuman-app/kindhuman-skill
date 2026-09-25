@@ -109,10 +109,10 @@ Default state is `~/.kindhuman`; choose a different private directory with `KH_H
 ## Your editable local profile
 
 `kh profile init` creates `profile.json` in your private home without an account.
-Your agent helps you shape values and islands there in your own words. When ready,
+Your agent helps you shape values and chapters there in your own words. When ready,
 use `profile preview`, approve its exact hash, then `profile send`. Select optional
 profile access when creating your agent connection. Supporting Moments must already
-be uploaded. See the [profile contract](docs/server-contract.md#reviewed-values-islands-and-communication-style)
+be uploaded. See the [profile contract](docs/server-contract.md#reviewed-values-chapters-and-communication-style)
 for the editable format and conflict recovery. The CLI keeps your local draft and
 confirms the saved profile before returning its private URL.
 

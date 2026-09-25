@@ -13,7 +13,7 @@ function setup(t) {
   const home = path.join(base, 'private');
   function call(...args) { return spawnSync(process.execPath, [cli, ...args], { env: { ...process.env, KH_HOME: home }, encoding: 'utf8' }); }
   function run(...args) { const result = call(...args); assert.equal(result.status, 0, result.stderr); return JSON.parse(result.stdout); }
-  run('init', '--timezone', 'Australia/Melbourne', '--rhythm', 'Weekdays at 19:30');
+  run('init', '--timezone', 'Australia/Melbourne', '--rhythm', 'Weekdays at 19:30', '--style', 'gentle', '--lens', 'self-reflection');
   return { base, home, run, call };
 }
 test('capture preserves original text, deduplicates, and requires exact review digest', t => {
@@ -21,6 +21,8 @@ test('capture preserves original text, deduplicates, and requires exact review d
   const file = path.join(base, 'transcript.txt'), text = '  Original words.\nSecond line.\n';
   fs.writeFileSync(file, text);
   run('source', 'add', '--id', 'journal', '--kind', 'file', '--locator', file, '--scope', 'Only this file');
+  assert.equal(run('status').style, 'gentle');
+  assert.equal(run('status').lens, 'self-reflection');
   const first = run('collect', '--source', 'journal').results[0];
   assert.equal(run('collect', '--source', 'journal').results[0].duplicate, true);
   const record = run('inbox', 'show', '--id', first.id);
@@ -37,7 +39,7 @@ test('capture preserves original text, deduplicates, and requires exact review d
 });
 test('empty inbox still invites reflection; schedule is chosen and never falsely registered', t => {
   const { run, call } = setup(t);
-  assert.match(run('check-in').invitation, /What stayed with you/);
+  assert.match(run('check-in').invitation, /what stayed with you/i);
   const prompt = run('schedule-prompt');
   assert.equal(prompt.rhythm, 'Weekdays at 19:30');
   assert.equal(prompt.registered, false);

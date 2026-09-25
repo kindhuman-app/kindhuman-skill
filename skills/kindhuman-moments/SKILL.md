@@ -5,7 +5,7 @@ description: "Review KindHuman candidate Moments and preserve approved material 
 
 # kindhuman-moments
 
-Read the contract and connected API reference. Verify the connected account with `kh account status`, then list local candidates with `kh inbox list`. Use `kh upload preview --id ID` to show the complete upload payload, source reference, destination server and account.
+Read the contract and connected API reference. List local candidates with `kh inbox list`; account connection is only needed when the person chooses to upload. Use `kh upload preview --id ID` to show the complete upload payload, source reference, communication style/Q&A context, destination server and account. If no account is connected, keep the candidate local and offer the browser setup handoff.
 
 Record only the decision the person actually gave: `kh upload approve --id ID --hash REVIEW_HASH`. Then `kh upload send --id ID` preserves the reviewed Moment and verifies its receipt by read-back. Open the returned private URL. `kh moments list` and `kh moments show --id SERVER_ID` read the connected account's saved records. The CLI does not edit saved records; use the authenticated app for edits.
 

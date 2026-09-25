@@ -78,7 +78,7 @@ function capture(home, source, text, origin, interaction = null) {
     id: randomUUID(), digest, state: 'pending-review', capturedAt: now(), eventAt: null,
     source: { id: source.id, kind: source.kind, scope: source.scope, locator: source.locator, origin },
     interaction,
-    originalText: text, interpretation: null, reflection: null, approval: null
+    originalText: text, displayWords: text.trim(), interpretation: null, reflection: null, approval: null
   };
   writeJSON(path.join(home, 'inbox', `${record.id}.json`), record);
   return { id: record.id, digest, duplicate: false, state: record.state };
@@ -108,7 +108,7 @@ async function run() {
   const allowed = {
     install: ['agent', 'global', 'project', 'dry-run'], init: ['home', 'timezone', 'rhythm', 'style', 'lens'],
     source: ['home', 'id', 'kind', 'locator', 'scope'], collect: ['home', 'source'],
-    capture: ['home', 'source', 'file', 'origin'], inbox: ['home', 'id'],
+    capture: ['home', 'source', 'file', 'origin'], edit: ['home', 'id', 'file'], inbox: ['home', 'id'],
     review: ['home', 'id', 'digest', 'decision'], 'check-in': ['home'], status: ['home'],
     'schedule-prompt': ['home'], account: ['home','server'], upload: ['home','id','hash'], moments: ['home','id'], help: []
   };
@@ -121,6 +121,7 @@ kh source list [--home PATH]
 kh source pause|resume --id ID [--home PATH]
 kh collect --source ID [--home PATH]  # file/folder sources only; folder is non-recursive
 kh capture --source ID --file UTF8_FILE --origin SOURCE_REFERENCE [--home PATH]
+kh edit --id ID --file UTF8_FILE [--home PATH] # edit proposed words; original remains preserved
 kh inbox list [--home PATH]
 kh inbox show --id ID [--home PATH]
 kh review --id ID --digest SHA256 --decision approve|dismiss [--home PATH]
@@ -139,7 +140,7 @@ Default private local data: KH_HOME or ~/.kindhuman. Only upload send transfers 
   }
   if (!allowed[command]) fail(`Unknown command: ${command}`);
   for (const key of Object.keys(flags)) if (!allowed[command].includes(key)) fail(`Unknown option --${key} for ${command}`);
-  if (words.length > (['source', 'inbox', 'account', 'upload', 'moments'].includes(command) ? 2 : 1)) fail('Unexpected positional argument');
+  if (words.length > (['source', 'inbox', 'edit', 'account', 'upload', 'moments'].includes(command) ? 2 : 1)) fail('Unexpected positional argument');
   if (command === 'install') return install(flags);
   const home = path.resolve(flags.home || process.env.KH_HOME || path.join(os.homedir(), '.kindhuman'));
   return locked(home, () => {
@@ -195,6 +196,17 @@ Default private local data: KH_HOME or ~/.kindhuman. Only upload send transfers 
       if (s.paused) fail('This source is paused. Resume only at the user\'s request.');
       const result = capture(home, s, readText(need(flags, 'file')), need(flags, 'origin'), { style: c.style, lens: c.lens });
       return output(result);
+    }
+    if (command === 'edit') {
+      const p = path.join(home, 'inbox', `${safeId(need(flags, 'id'))}.json`), r = readJSON(p);
+      const words = readText(need(flags, 'file'));
+      r.displayWords = words.trim();
+      r.editedAt = now();
+      r.state = 'pending-review';
+      r.approval = null;
+      delete r.upload;
+      writeJSON(p, r);
+      return output({ id: r.id, state: r.state, originalPreserved: r.originalText, displayWords: r.displayWords, next: 'Review the edited candidate before any upload.' });
     }
     if (command === 'inbox') {
       if (action === 'list') return output(records(home).map(({ originalText, interpretation, reflection, ...r }) => r));

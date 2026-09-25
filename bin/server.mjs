@@ -40,7 +40,7 @@ function payloadFor(r) {
   if (r.reflection !== null && typeof r.reflection !== 'string') throw new Error('Reflection must be human-reviewed text or null.');
   const kind = ['folder', 'file'].includes(r.source.kind) ? 'file' : r.source.kind;
   if (!['conversation','web','paste','file','transcript','legacy'].includes(kind)) throw new Error('Unsupported source kind.');
-  const payload = { words: r.originalText.trim(), originalWords: r.originalText, eventAt: r.eventAt, views: [], provenance: { kind, sourceRef: r.source.origin, author: null }, reflection: r.reflection };
+  const payload = { words: (r.displayWords || r.originalText.trim()), originalWords: r.originalText, eventAt: r.eventAt, views: [], provenance: { kind, sourceRef: r.source.origin, author: null }, reflection: r.reflection };
   if (typeof payload.provenance.sourceRef !== 'string' || payload.provenance.sourceRef.length > 2000 || (payload.reflection?.length || 0) > 8000 || JSON.stringify(payload).length > 140000) throw new Error('Source reference or reflection exceeds the upload limit.');
   return payload;
 }

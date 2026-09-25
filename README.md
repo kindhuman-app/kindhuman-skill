@@ -2,7 +2,7 @@
 
 Turn selected conversations, reading and transcripts into a continuing practice: gather locally, ask a thoughtful question, review, then preserve what matters.
 
-For **Codex, Cursor and Meta Muse Code**. Each person chooses sources, boundaries, cadence and timezone during setup. Every scheduled check-in offers an invitation, including when no new material arrives. **Nothing is uploaded to KindHuman before the person reviews it.**
+For **Codex, Cursor and Meta Muse Code**. Each person chooses sources, boundaries, cadence, timezone and interaction style during setup. The recommended default is an **Inquisitive companion**: warm, curious, practical and gently helpful. Every scheduled check-in offers an invitation, including when no new material arrives. **Nothing is uploaded to KindHuman before the person reviews it.**
 
 ## What works in 0.2.0
 
@@ -42,7 +42,7 @@ Without global CLI installation, run `node /absolute/path/to/kindhuman-skill/bin
 The examples below use a sample cadence. Ask the person for their actual choice; do not impose the example.
 
 ```sh
-kh init --timezone Australia/Melbourne --rhythm "Weekdays at 19:30"
+kh init --timezone Australia/Melbourne --rhythm "Weekdays at 19:30" --style "Inquisitive companion" --lens "self-reflection"
 kh source add --id journal --kind file --locator /absolute/path/to/journal.txt --scope "Only this selected file, including its current contents"
 kh collect --source journal
 kh check-in
@@ -61,7 +61,7 @@ kh upload approve --id ITEM_ID --hash REVIEW_HASH
 kh upload send --id ITEM_ID
 ```
 
-`send` verifies the saved record and returns its real private URL. Run `kh schedule-prompt` to prepare the chosen follow-up and `kh status` to inspect local state. Retry the same item after uncertain delivery. Changed content or accounts require another review. Read [the connected API guide](docs/server-contract.md) for token handling, limits and recovery. The scheduler prompt must be registered through the agent's real native tools at the user's chosen time; printing it does not schedule a run.
+`send` verifies the saved record and returns its real private URL. The local inbox folder is editable: use `kh edit --id ITEM_ID --file EDITED_WORDS.txt` to change proposed display words while preserving the exact original. Run `kh schedule-prompt` to prepare the chosen follow-up and `kh status` to inspect local state. Q&A is optional and user-triggered. Retry the same item after uncertain delivery. Changed content or accounts require another review. Read [the connected API guide](docs/server-contract.md) for token handling, limits and recovery. The scheduler prompt must be registered through the agent's real native tools at the user's chosen time; printing it does not schedule a run.
 
 For an offline-only decision, `kh review --id ITEM_ID --digest DIGEST --decision approve|dismiss` preserves a local review. Such an approval needs a fresh destination-bound review before server upload.
 

@@ -27,6 +27,10 @@ test('capture preserves original text, deduplicates, and requires exact review d
   assert.equal(run('collect', '--source', 'journal').results[0].duplicate, true);
   const record = run('inbox', 'show', '--id', first.id);
   assert.equal(record.originalText, text);
+  const editedFile = path.join(base, 'edited.txt');
+  fs.writeFileSync(editedFile, 'A clearer proposed Moment.');
+  assert.equal(run('edit', '--id', first.id, '--file', editedFile).originalPreserved, text);
+  assert.equal(run('inbox', 'show', '--id', first.id).displayWords, 'A clearer proposed Moment.');
   assert.equal(record.eventAt, null);
   assert.equal(record.approval, null);
   assert.notEqual(call('review', '--id', first.id, '--digest', 'wrong', '--decision', 'approve').status, 0);

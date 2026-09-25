@@ -1,6 +1,6 @@
 ---
 name: kindhuman-share
-description: "Preview and share exactly the KindHuman Moments or Snapshot material the person chooses to display to an audience."
+description: "Internal preview operation — never offer it as a choice. Preview exactly what would become visible and to whom; no CLI publish operation exists."
 ---
 
 # kindhuman-share

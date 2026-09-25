@@ -118,19 +118,26 @@ confirms the saved profile before returning its private URL.
 
 ## Skill catalogue
 
+Two skills face the person. The rest are quiet operations the agent performs
+silently — never offered as choices, never named in conversation.
+
 | Skill | Status | Purpose |
 |---|---|---|
-| `kindhuman-start` | Stable | Setup and immediate first capture, inquiry and review |
-| `kindhuman-sources` | Stable | Source selection, access checks and recovery |
-| `kindhuman-check-in` | Stable | Scheduled collection and a useful invitation |
-| `kindhuman-capture` | Stable | Preserve original material in the local inbox |
-| `kindhuman-reflect` | Stable | Explore meaning and source-supported connections |
-| `kindhuman-moments` | Stable | Review and preserve exact approved material |
-| `kindhuman-snapshots` | Preview | Propose dated selections of approved Moments (local proposal only; no CLI snapshot command yet) |
-| `kindhuman-share` | Preview | Review what becomes visible to others (no CLI publish operation; never claims local approval made anything public) |
-| `kindhuman-status` | Stable | Distinguish configuration from actual working delivery |
+| `kindhuman-start` | Stable | Begin: teach the practice, take the person's own words, land one reviewed local candidate |
+| `kindhuman-check-in` | Stable | Return on their rhythm with gathering, reflection and one useful invitation |
 
-Preview skills are usable vocabulary whose product mechanism is still undecided; treat their flows as proposals, not promises.
+| Quiet operation | Status | What the agent does with it |
+|---|---|---|
+| `kindhuman-capture` | Stable | Preserve dumped material into the inbox, then extract |
+| `kindhuman-reflect` | Stable | A mode inside start and check-in, not a destination |
+| `kindhuman-moments` | Stable | Review and preserve approved material; the person sees only the review |
+| `kindhuman-sources` | Stable | Manage source scopes; the person only names what may be read |
+| `kindhuman-status` | Stable | Diagnose, then report one recovery step in plain words |
+| `kindhuman-snapshots` | Preview | Local Snapshot proposals only |
+| `kindhuman-share` | Preview | Visibility previews; no publish operation |
+
+When the person dumps material, extract first, then ask. Perform the jobs;
+keep asking questions. Procedure stays invisible; produce and questions stay visible.
 
 ## Design and implementation
 

@@ -1,6 +1,6 @@
 ---
 name: kindhuman-snapshots
-description: "Prepare a dated KindHuman Snapshot from the person\u2019s selected, approved Moments and preserve fixed record versions when server support is available."
+description: "Internal preview operation — never offer it as a choice. Propose a dated Snapshot from selected, approved Moments; local proposal only until server support exists."
 ---
 
 # kindhuman-snapshots

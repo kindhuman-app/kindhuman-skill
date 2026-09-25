@@ -1,6 +1,6 @@
 ---
 name: kindhuman-sources
-description: "Connect and manage the user-selected conversations, reading, text and transcripts that feed KindHuman check-ins."
+description: "Internal operation, handled silently while setting up or checking in — never offer it as a choice. Manage the user-selected conversations, reading, text and transcripts that feed check-ins; the person only names what may be read."
 ---
 
 # kindhuman-sources

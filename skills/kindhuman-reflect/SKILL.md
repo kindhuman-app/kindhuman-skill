@@ -1,6 +1,6 @@
 ---
 name: kindhuman-reflect
-description: "Help a person reflect on a captured KindHuman item and explore source-supported connections without turning AI suggestions into personal facts."
+description: "Internal mode, carried inside kindhuman-start and kindhuman-check-in conversations — never a destination. Explore meaning and source-supported connections without turning AI suggestions into personal facts."
 ---
 
 # kindhuman-reflect

@@ -1,6 +1,6 @@
 ---
 name: kindhuman-capture
-description: "Capture selected material or a check-in reply into the private KindHuman inbox, preserving original words and provenance for later review."
+description: "Internal operation, invoked by kindhuman-start and kindhuman-check-in — never offer it as a choice. Preserve selected material or a check-in reply into the private inbox, keeping original words and provenance for later review."
 ---
 
 # kindhuman-capture

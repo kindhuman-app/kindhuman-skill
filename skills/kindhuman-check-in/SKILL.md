@@ -1,6 +1,6 @@
 ---
 name: kindhuman-check-in
-description: "Run a scheduled KindHuman source-gathering and reflection check-in, always offering one useful invitation even when no new material arrives."
+description: "Return to the person on their rhythm: gather from configured sources, and always offer one useful invitation even when no new material arrives. Reflection lives inside this loop. The person never chooses skills; keep asking questions."
 ---
 
 # kindhuman-check-in

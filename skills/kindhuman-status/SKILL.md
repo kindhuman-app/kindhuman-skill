@@ -1,6 +1,6 @@
 ---
 name: kindhuman-status
-description: "Diagnose KindHuman installation, source access, local inbox, review state, schedule delivery and server readiness without conflating configuration with success."
+description: "Internal operation, run to diagnose — never offer it as a choice. Check installation, source access, local inbox, review state, schedule delivery and server readiness, then report one recovery step in plain words."
 ---
 
 # kindhuman-status

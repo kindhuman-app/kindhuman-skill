@@ -43,7 +43,7 @@ kh install --agent all --project /absolute/path/to/project
 
 Without global CLI installation, run `node /absolute/path/to/kindhuman-skill/bin/kh.mjs` instead of `kh`. Keep that clone available. Skills are installed as copies; updating the clone does not silently update installed copies. Review changes and move existing skill folders aside before reinstalling. Do not delete personal inbox data when updating skills.
 
-## What works in 0.2.0
+## What works in 0.2.1
 
 - Nine portable skills with source, review and agent-specific guidance.
 - A dependency-free Node CLI that installs skills, configures a private local inbox, collects selected text/transcript files, deduplicates captures and records exact-content review decisions. Installs are version-stamped (`kh status` warns about stale copies); `kh uninstall` removes skill copies only, never inbox data.
@@ -89,6 +89,19 @@ kh inbox list
 kh inbox show --id ITEM_ID
 ```
 
+Every capture also writes a readable Markdown companion next to the machine record:
+`inbox/<id>.md`. Open that file — not the JSON — to edit proposed words, fill
+place/symbols/people/moments/feelings, and check the two review boxes. Then:
+
+```sh
+kh review --id ITEM_ID
+```
+
+Checkbox review pulls those edits into the record and records a local approval.
+It is not an upload. Older JSON-only items gain a readable copy with
+`kh inbox export-md`. Digests still cover the original words only, so checking
+a box never changes identity.
+
 For a connected save, create an agent token in the app's `/app/setup` and provide `KH_TOKEN` through your credential manager (never paste it into chat, command arguments or Git). Connect before asking for upload approval so the person reviews the account and payload together:
 
 ```sh
@@ -100,9 +113,16 @@ kh upload approve --id ITEM_ID --hash REVIEW_HASH
 kh upload send --id ITEM_ID
 ```
 
-`send` verifies the saved record and returns its real private URL. The local inbox folder is editable: use `kh edit --id ITEM_ID --file EDITED_WORDS.txt` to change proposed display words while preserving the exact original. Run `kh schedule-prompt` to prepare the chosen follow-up and `kh status` to inspect local state. Q&A is optional and user-triggered. Retry the same item after uncertain delivery. Changed content or accounts require another review. Read [the connected API guide](docs/server-contract.md) for token handling, limits and recovery. The scheduler prompt must be registered through the agent's real native tools at the user's chosen time; printing it does not schedule a run.
-
-For an offline-only decision, `kh review --id ITEM_ID --digest DIGEST --decision approve|dismiss` preserves a local review. Such an approval needs a fresh destination-bound review before server upload.
+`send` verifies the saved record and returns its real private URL. Prefer editing
+the readable `.md` copy; `kh edit --id ITEM_ID --file EDITED_WORDS.txt` still
+changes proposed display words while preserving the exact original. For an
+offline-only decision without opening Markdown, `kh review --id ITEM_ID --digest DIGEST --decision approve|dismiss` still works and needs a fresh destination-bound
+review before server upload. Run `kh schedule-prompt` to prepare the chosen
+follow-up and `kh status` to inspect local state. Q&A is optional and user-triggered.
+Retry the same item after uncertain delivery. Changed content or accounts require
+another review. Read [the connected API guide](docs/server-contract.md) for token
+handling, limits and recovery. The scheduler prompt must be registered through the
+agent's real native tools at the user's chosen time; printing it does not schedule a run.
 
 Default state is `~/.kindhuman`; choose a different private directory with `KH_HOME` or `--home`. State files contain personal text. Keep them outside Git, synced skills and public directories. Local permissions are not encryption. Agent processing may still use the user's model provider; the guarantee is no upload to **KindHuman** before review. Only explicit reviewed `upload send` and `profile send` commands send capture or profile content to KindHuman. Account and read commands use authenticated HTTPS. The token is never persisted by the CLI.
 

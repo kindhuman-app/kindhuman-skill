@@ -143,5 +143,65 @@ test('project install and uninstall roundtrip keeps the inbox untouched', t => {
   run('uninstall', '--agent', 'all', '--project', project);
   assert.equal(fs.existsSync(path.join(project, '.agents', 'skills')), true);
   assert.equal(fs.existsSync(path.join(project, '.agents', 'skills', 'kindhuman-start')), false);
-  assert.equal(fs.readdirSync(path.join(home, 'inbox')).length, 1);
+  assert.equal(fs.existsSync(path.join(home, 'inbox', fs.readdirSync(path.join(home, 'inbox')).find(n => n.endsWith('.json')))), true);
+  assert.equal(fs.readdirSync(path.join(home, 'inbox')).filter(n => n.endsWith('.json')).length, 1);
+});
+test('markdown copy is the readable surface: facets, checkbox review, original preserved', t => {
+  const { base, home, run, call } = setup(t);
+  const file = path.join(base, 'note.txt');
+  fs.writeFileSync(file, 'I went back to melbourne and saw the doll by my bed. A good feeling of notalgic.');
+  run('source', 'add', '--id', 'paste', '--kind', 'file', '--locator', file, '--scope', 'This note');
+  const first = run('collect', '--source', 'paste').results[0];
+  assert.equal(first.duplicate, false);
+  assert.ok(first.readable.endsWith(`${first.id}.md`));
+  assert.equal(fs.existsSync(first.readable), true);
+  const md = fs.readFileSync(first.readable, 'utf8');
+  assert.match(md, /Do not edit below this line/);
+  assert.match(md, /> I went back to melbourne/);
+  assert.match(md, /- \[ \] This sounds like me/);
+  assert.match(md, /- Place:/);
+  // Incomplete checkboxes refuse approval without touching the original.
+  assert.notEqual(call('review', '--id', first.id).status, 0);
+  assert.equal(run('inbox', 'show', '--id', first.id).state, 'pending-review');
+  // Edit facets and display words through the readable copy, then check both boxes.
+  const edited = md
+    .replace(/## In your words\n\n[\s\S]*?\n\n## What this holds/, '## In your words\n\nMelbourne, and the doll still on my bed.\n\n## What this holds')
+    .replace('- Place:', '- Place: Melbourne — the year I lived there')
+    .replace('- Symbols:', '- Symbols: the doll still sitting on my bed')
+    .replace('- Feelings:', '- Feelings: nostalgic, held')
+    .replace('- [ ] This sounds like me', '- [x] This sounds like me')
+    .replace('- [ ] The meaning above is mine to keep', '- [x] The meaning above is mine to keep');
+  fs.writeFileSync(first.readable, edited);
+  const approved = run('review', '--id', first.id);
+  assert.equal(approved.state, 'approved-local');
+  assert.equal(approved.via, 'checkboxes');
+  assert.equal(approved.uploaded, false);
+  const record = run('inbox', 'show', '--id', first.id);
+  assert.equal(record.displayWords, 'Melbourne, and the doll still on my bed.');
+  assert.equal(record.facets.place, 'Melbourne — the year I lived there');
+  assert.equal(record.facets.symbols, 'the doll still sitting on my bed');
+  assert.equal(record.facets.feelings, 'nostalgic, held');
+  assert.match(record.originalText, /good feeling of notalgic/);
+  assert.match(fs.readFileSync(first.readable, 'utf8'), /- \[x\] This sounds like me/);
+  // Digests still cover the original only; a changed original refuses the old digest path.
+  const p = path.join(home, 'inbox', `${first.id}.json`);
+  const raw = JSON.parse(fs.readFileSync(p)); raw.originalText += ' altered'; fs.writeFileSync(p, JSON.stringify(raw));
+  assert.notEqual(call('review', '--id', first.id, '--digest', first.digest, '--decision', 'approve').status, 0);
+});
+test('export-md refreshes an older JSON-only inbox copy without changing the original', t => {
+  const { home, run } = setup(t);
+  const id = 'legacy0001';
+  const record = {
+    id, digest: 'abc', state: 'pending-review', capturedAt: '2026-09-26T00:00:00.000Z', eventAt: null,
+    source: { id: 'paste', kind: 'paste', scope: 'Selected text', locator: '', origin: 'bedroom conversation' },
+    interaction: null, originalText: 'Exact original from before markdown.', displayWords: 'Exact original from before markdown.',
+    interpretation: null, reflection: null, approval: null
+  };
+  fs.mkdirSync(path.join(home, 'inbox'), { recursive: true, mode: 0o700 });
+  fs.writeFileSync(path.join(home, 'inbox', `${id}.json`), JSON.stringify(record, null, 2) + '\n', { mode: 0o600 });
+  const exported = run('inbox', 'export-md', '--id', id);
+  assert.equal(exported.exported.length, 1);
+  const md = fs.readFileSync(exported.exported[0], 'utf8');
+  assert.match(md, /> Exact original from before markdown\./);
+  assert.equal(run('inbox', 'show', '--id', id).originalText, 'Exact original from before markdown.');
 });

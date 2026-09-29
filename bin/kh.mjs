@@ -64,6 +64,50 @@ function records(home) {
   return fs.readdirSync(dir).filter(n => n.endsWith('.json')).sort().map(n => readJSON(path.join(dir, n)));
 }
 function sourceById(c, id) { return c.sources.find(s => s.id === id) || fail(`Unknown source: ${id}`); }
+// The inbox is Markdown-first: the .md file is the readable, editable surface
+// and the .json file is the machine record. Digests cover the original only,
+// so checking a review box never changes identity. Upload envelopes are built
+// from named JSON fields, so extra record fields never reach the server.
+const FACET_KEYS = ['Place', 'Symbols', 'People', 'Moments', 'Feelings'];
+function recordTitle(r) { return (String(r.displayWords || r.originalText || '').trim().replace(/\s+/g, ' ').slice(0, 60)) || 'Untitled moment'; }
+function mdPath(home, id) { return path.join(home, 'inbox', `${id}.md`); }
+function recordMarkdown(r) {
+  const checked = r.state === 'approved-local';
+  const f = r.facets || {};
+  const box = label => `- [${checked ? 'x' : ' '}] ${label}`;
+  return ['---', `id: ${r.id}`, `source: ${r.source.kind}`, `origin: ${r.source.origin}`, `captured: ${r.capturedAt}`, `event: ${r.eventAt || 'unknown'}`, '---', '',
+    `# ${recordTitle(r)}`, '',
+    '> Do not edit below this line — original words.',
+    ...String(r.originalText).split('\n').map(l => `> ${l}`), '',
+    '## In your words', '', String(r.displayWords || '').trim(), '',
+    '## What this holds', '', ...FACET_KEYS.map(k => `- ${k}: ${f[k.toLowerCase()] || ''}`), '',
+    '## Review', '', box('This sounds like me'), box('The meaning above is mine to keep'), ''
+  ].join('\n');
+}
+function writeMarkdown(home, r) { const p = mdPath(home, r.id); noSymlinks(p); fs.writeFileSync(p, recordMarkdown(r), { mode: 0o600 }); return p; }
+function parseMarkdown(md) {
+  const sections = {}, order = [];
+  let current = null;
+  for (const line of md.split('\n')) {
+    const h = line.match(/^## (.+?)\s*$/);
+    if (h) { current = h[1].trim(); sections[current] = []; order.push(current); continue; }
+    if (current) sections[current].push(line);
+  }
+  const text = name => (sections[name] || []).join('\n').trim();
+  const facets = {};
+  for (const line of (sections['What this holds'] || [])) {
+    const m = line.match(/^- (Place|Symbols|People|Moments|Feelings):(.*)$/);
+    if (m) facets[m[1].toLowerCase()] = m[2].trim();
+  }
+  const boxes = {};
+  for (const line of (sections['Review'] || [])) {
+    const m = line.match(/^- \[([ xX])\]\s*(.+)$/);
+    if (m) boxes[m[2].trim().toLowerCase()] = m[1].toLowerCase() === 'x';
+  }
+  const sounds = boxes['this sounds like me'], keep = boxes['the meaning above is mine to keep'];
+  if (sounds === undefined || keep === undefined) fail('The Review section needs both checkboxes: “This sounds like me” and “The meaning above is mine to keep”. Re-export the readable copy and try again.');
+  return { displayWords: text('In your words'), facets, soundsLikeMe: sounds, mineToKeep: keep };
+}
 function readText(p) {
   noSymlinks(p);
   const st = fs.statSync(p);
@@ -83,7 +127,8 @@ function capture(home, source, text, origin, interaction = null) {
     originalText: text, displayWords: text.trim(), interpretation: null, reflection: null, approval: null
   };
   writeJSON(path.join(home, 'inbox', `${record.id}.json`), record);
-  return { id: record.id, digest, duplicate: false, state: record.state };
+  const readable = writeMarkdown(home, record);
+  return { id: record.id, digest, duplicate: false, state: record.state, readable };
 }
 function install(flags) {
   const agent = need(flags, 'agent');
@@ -178,6 +223,9 @@ kh capture --source ID --file UTF8_FILE --origin SOURCE_REFERENCE [--home PATH]
 kh edit --id ID --file UTF8_FILE [--home PATH] # edit proposed words; original remains preserved
 kh inbox list [--home PATH]
 kh inbox show --id ID [--home PATH]
+kh inbox export-md [--id ID] [--home PATH]  # write/refresh the readable .md copy
+kh inbox sync-md [--id ID] [--home PATH]    # pull edits and facets from .md into the record
+kh review --id ID [--home PATH]             # checkbox review from the readable .md
 kh review --id ID --digest SHA256 --decision approve|dismiss [--home PATH]
 kh check-in [--home PATH]
 kh schedule-prompt [--home PATH]
@@ -264,21 +312,62 @@ Default private local data: KH_HOME or ~/.kindhuman. Only upload send and profil
       r.approval = null;
       delete r.upload;
       writeJSON(p, r);
-      return output({ id: r.id, state: r.state, originalPreserved: r.originalText, displayWords: r.displayWords, next: 'Review the edited candidate before any upload.' });
+      const readable = writeMarkdown(home, r);
+      return output({ id: r.id, state: r.state, originalPreserved: r.originalText, displayWords: r.displayWords, readable, next: 'Open the readable copy, fill what this holds, check both review boxes, then run review.' });
     }
     if (command === 'inbox') {
-      if (action === 'list') return output(records(home).map(({ originalText, interpretation, reflection, ...r }) => r));
+      if (action === 'list') return output(records(home).map(({ originalText, interpretation, reflection, ...r }) => ({ ...r, readable: exists(mdPath(home, r.id)) })));
       if (action === 'show') return output(readJSON(path.join(home, 'inbox', `${safeId(need(flags, 'id'))}.json`)));
-      fail('Use inbox list or inbox show');
+      if (action === 'export-md') {
+        const ids = flags.id ? [safeId(flags.id)] : records(home).map(r => r.id);
+        if (!ids.length) fail('The inbox is empty; capture something first.');
+        return output({ exported: ids.map(id => writeMarkdown(home, readJSON(path.join(home, 'inbox', `${id}.json`)))), next: 'Open the .md file. It reads plainly, edits safely, and reviews with checkboxes.' });
+      }
+      if (action === 'sync-md') {
+        const ids = flags.id ? [safeId(flags.id)] : records(home).map(r => r.id);
+        if (!ids.length) fail('The inbox is empty; capture something first.');
+        return output({ synced: ids.map(id => {
+          const p = path.join(home, 'inbox', `${id}.json`);
+          if (!exists(mdPath(home, id))) fail(`No readable copy for ${id} yet. Run inbox export-md first; the .json record is never hand-edited.`);
+          const r = readJSON(p), parsed = parseMarkdown(fs.readFileSync(mdPath(home, id), 'utf8'));
+          if (!parsed.displayWords) fail('Keep some words in “In your words”; an empty telling preserves nothing.');
+          r.displayWords = parsed.displayWords;
+          r.facets = parsed.facets;
+          r.editedAt = now();
+          r.state = 'pending-review';
+          r.approval = null;
+          delete r.upload;
+          writeJSON(p, r);
+          return { id, state: r.state };
+        }), next: 'Edited words are pending review again. Check both boxes and run review to approve.' });
+      }
+      fail('Use inbox list, show, export-md or sync-md');
     }
     if (command === 'review') {
       const p = path.join(home, 'inbox', `${safeId(need(flags, 'id'))}.json`), r = readJSON(p);
+      if (!flags.digest && !flags.decision) {
+        if (!exists(mdPath(home, r.id))) fail(`No readable copy for ${r.id} yet. Run inbox export-md first; the .json record is never hand-edited.`);
+        const parsed = parseMarkdown(fs.readFileSync(mdPath(home, r.id), 'utf8'));
+        const open = [!parsed.soundsLikeMe && '“This sounds like me”', !parsed.mineToKeep && '“The meaning above is mine to keep”'].filter(Boolean);
+        if (open.length) fail(`Not yet reviewed. Still open: ${open.join(' and ')}. Check both boxes in the readable copy, then review again.`);
+        if (!parsed.displayWords) fail('Keep some words in “In your words”; an empty telling preserves nothing.');
+        // One human step: pull readable edits, then record the checked approval.
+        r.displayWords = parsed.displayWords;
+        r.facets = parsed.facets;
+        r.editedAt = now();
+        r.state = 'approved-local';
+        r.approval = { digest: r.digest, at: now(), destination: 'private-kindhuman', uploadPerformed: false };
+        delete r.upload;
+        writeJSON(p, r);
+        return output({ id: r.id, state: r.state, uploaded: false, via: 'checkboxes', readable: writeMarkdown(home, r), next: 'Approval records a human decision; it is not an upload.' });
+      }
       const digest = need(flags, 'digest'), decision = need(flags, 'decision');
       if (digest !== r.digest || digest !== hash(JSON.stringify({ sourceId: r.source.id, origin: r.source.origin, text: r.originalText }))) fail('Content changed or digest does not match. Show the item and obtain a fresh decision.');
       if (!['approve', 'dismiss'].includes(decision)) fail('Decision must be approve or dismiss');
       r.state = decision === 'approve' ? 'approved-local' : 'dismissed';
       r.approval = decision === 'approve' ? { digest, at: now(), destination: 'private-kindhuman', uploadPerformed: false } : null;
       writeJSON(p, r);
+      if (exists(mdPath(home, r.id)) || decision === 'approve') writeMarkdown(home, r);
       return output({ id: r.id, state: r.state, uploaded: false, next: 'Approval records a human decision; it is not an upload. Use account connect and upload preview to obtain a separate account-bound upload approval.' });
     }
     if (command === 'check-in') {

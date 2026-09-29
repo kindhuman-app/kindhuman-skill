@@ -1,12 +1,29 @@
 {
   "name": "@kindhuman/skills",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "private": true,
   "description": "KindHuman skills and a connected review-first inbox for Codex, Cursor and Muse Code",
   "type": "module",
-  "bin": { "kh": "bin/kh.mjs" },
-  "engines": { "node": ">=20" },
-  "scripts": { "test": "node --test", "check": "node --check bin/kh.mjs && node --check bin/server.mjs && node --check bin/profile.mjs && node --check scripts/verify-server.mjs && node scripts/sync-references.mjs --check", "sync-references": "node scripts/sync-references.mjs" },
-  "files": ["bin", "skills", "docs", "scripts", "README.md"],
-  "repository": { "type": "git", "url": "https://github.com/kindhuman-app/kindhuman-skill.git" }
+  "bin": {
+    "kh": "bin/kh.mjs"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "test": "node --test",
+    "check": "node --check bin/kh.mjs && node --check bin/server.mjs && node --check bin/profile.mjs && node --check scripts/verify-server.mjs && node scripts/sync-references.mjs --check",
+    "sync-references": "node scripts/sync-references.mjs"
+  },
+  "files": [
+    "bin",
+    "skills",
+    "docs",
+    "scripts",
+    "README.md"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/kindhuman-app/kindhuman-skill.git"
+  }
 }

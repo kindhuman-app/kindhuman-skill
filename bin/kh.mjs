@@ -5,7 +5,7 @@ import os from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { createHash, randomUUID } from 'node:crypto';
 
-import { connectedCommand } from './server.mjs';
+import { connectedCommand, useHome } from './server.mjs';
 import { profileCommand } from './profile.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -21,7 +21,7 @@ function args(values) {
     if (!values[i].startsWith('--')) { words.push(values[i]); continue; }
     const key = values[i].slice(2);
     if (key in flags) fail(`Repeated option --${key}`);
-    if (['global', 'dry-run'].includes(key)) flags[key] = true;
+    if (['global', 'dry-run', 'profile'].includes(key)) flags[key] = true;
     else {
       if (!values[i + 1] || values[i + 1].startsWith('--')) fail(`Missing value for --${key}`);
       flags[key] = values[++i];
@@ -208,7 +208,7 @@ async function run() {
     source: ['home', 'id', 'kind', 'locator', 'scope'], collect: ['home', 'source'],
     capture: ['home', 'source', 'file', 'origin'], edit: ['home', 'id', 'file'], inbox: ['home', 'id'],
     review: ['home', 'id', 'digest', 'decision'], 'check-in': ['home'], status: ['home'],
-    'schedule-prompt': ['home'], account: ['home','server'], upload: ['home','id','hash'], moments: ['home','id'], profile: ['home','hash'], help: []
+    'schedule-prompt': ['home'], account: ['home','server','name','profile'], upload: ['home','id','hash'], moments: ['home','id'], profile: ['home','hash'], help: []
   };
   if (!command || command === 'help') {
     console.log(`KindHuman ${VERSION}: local capture, account connection and reviewed private uploads.
@@ -230,8 +230,8 @@ kh review --id ID --digest SHA256 --decision approve|dismiss [--home PATH]
 kh check-in [--home PATH]
 kh schedule-prompt [--home PATH]
 kh status [--home PATH]
-kh account connect --server https://YOUR_HOST [--home PATH] # KH_TOKEN from credential manager
-kh account status|disconnect [--home PATH]
+kh account connect --server https://YOUR_HOST [--name AGENT_NAME] [--profile] [--home PATH] # prints a code to approve in the person's signed-in browser; KH_TOKEN, if set, is used instead
+kh account status|disconnect [--home PATH] # disconnect also removes the stored approval; revoke in /app/setup
 kh upload preview --id ID [--home PATH]
 kh upload approve --id ID --hash REVIEW_HASH [--home PATH] # only after human approval
 kh upload send --id ID [--home PATH]
@@ -248,6 +248,7 @@ Default private local data: KH_HOME or ~/.kindhuman. Only upload send and profil
   if (command === 'install') return install(flags);
   if (command === 'uninstall') return uninstall(flags);
   const home = path.resolve(flags.home || process.env.KH_HOME || path.join(os.homedir(), '.kindhuman'));
+  useHome(home);
   return locked(home, () => {
     if (command === 'init') {
       const timezone = need(flags, 'timezone'), rhythm = need(flags, 'rhythm');

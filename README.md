@@ -48,9 +48,9 @@ Without global CLI installation, run `node /absolute/path/to/kindhuman-skill/bin
 - Nine portable skills with source, review and agent-specific guidance.
 - A dependency-free Node CLI that installs skills, configures a private local inbox, collects selected text/transcript files, deduplicates captures and records exact-content review decisions. Installs are version-stamped (`kh status` warns about stale copies); `kh uninstall` removes skill copies only, never inbox data.
 - Source pause/resume, collection health, a schedule prompt and empty-inbox reflection invitation.
-- Account connection via per-agent tokens, exact account-bound upload review, private text uploads, retry deduplication and verified read-back URLs.
+- Account connection approved in the person's own signed-in browser (`kh account connect` prints a URL and short code), or via a personal token; exact account-bound upload review, private text uploads, retry deduplication and verified read-back URLs.
 
-**Not implemented in the CLI:** OAuth device login, remote-source connector clients, native scheduler registration, binary uploads, Snapshot creation, record editing or publication. Use the app for reviewed editing, Snapshots and sharing. Connect only to a deployment serving the new agent API.
+**Not implemented in the CLI:** remote-source connector clients, native scheduler registration, binary uploads, Snapshot creation, record editing or publication. Use the app for reviewed editing, Snapshots and sharing. Connect only to a deployment serving the new agent API.
 
 ## Install
 
@@ -102,10 +102,10 @@ It is not an upload. Older JSON-only items gain a readable copy with
 `kh inbox export-md`. Digests still cover the original words only, so checking
 a box never changes identity.
 
-For a connected save, create an agent token in the app's `/app/setup` and provide `KH_TOKEN` through your credential manager (never paste it into chat, command arguments or Git). Connect before asking for upload approval so the person reviews the account and payload together:
+For a connected save, connect first so the person reviews the account and payload together. `account connect` prints an approval URL and an eight-character code; the person approves it in their own signed-in browser, and the command finishes on its own. (A personal token from `/app/setup`, provided as `KH_TOKEN` through your credential manager, still works; never paste it into chat, command arguments or Git.)
 
 ```sh
-kh account connect --server https://YOUR_KINDHUMAN_HOST
+kh account connect --server https://YOUR_KINDHUMAN_HOST --name "Codex on this Mac"
 kh account status
 kh upload preview --id ITEM_ID
 # Show the exact preview and destination, then obtain human approval.
@@ -124,7 +124,7 @@ another review. Read [the connected API guide](docs/server-contract.md) for toke
 handling, limits and recovery. The scheduler prompt must be registered through the
 agent's real native tools at the user's chosen time; printing it does not schedule a run.
 
-Default state is `~/.kindhuman`; choose a different private directory with `KH_HOME` or `--home`. State files contain personal text. Keep them outside Git, synced skills and public directories. Local permissions are not encryption. Agent processing may still use the user's model provider; the guarantee is no upload to **KindHuman** before review. Only explicit reviewed `upload send` and `profile send` commands send capture or profile content to KindHuman. Account and read commands use authenticated HTTPS. The token is never persisted by the CLI.
+Default state is `~/.kindhuman`; choose a different private directory with `KH_HOME` or `--home`. State files contain personal text. Keep them outside Git, synced skills and public directories. Local permissions are not encryption. Agent processing may still use the user's model provider; the guarantee is no upload to **KindHuman** before review. Only explicit reviewed `upload send` and `profile send` commands send capture or profile content to KindHuman. Account and read commands use authenticated HTTPS. A browser-approved token is stored only in `KH_HOME/credentials.json` (mode 0600) and removed by `kh account disconnect`; a `KH_TOKEN` from your credential manager is never written to disk.
 
 ## Your editable local profile
 

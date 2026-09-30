@@ -4,16 +4,18 @@ The Prisma KindHuman app implements this contract. Connect only to a deployment 
 
 ## Connect
 
-Sign in to the intended KindHuman host, open `/app/setup`, and create an agent connection. The token is shown once, expires after 90 days, and can be revoked there. This is a personal agent token, not OAuth device login. Never reuse another person's session or collect their password.
-
-Provide the token as `KH_TOKEN` through the host credential mechanism, then run:
+Preferred: browser approval. Run the connect command without a token. The CLI asks the server for a short code, prints the approval URL and code, and waits while the person approves it in their own signed-in browser at `/app/connect`. The grant belongs to whichever account approves; the consent page names that account and offers sign-out first. Never reuse another person's session or collect their password.
 
 ```sh
-kh account connect --server https://YOUR_KINDHUMAN_HOST
+kh account connect --server https://YOUR_KINDHUMAN_HOST --name "Codex on this Mac"   # add --profile to also request reviewed-profile access
 kh account status
 ```
 
-Do not put a token in command arguments, chat, skills, source files or Git. The CLI reads it from the environment each run and never saves it. Local `config.json` stores only the server origin and verified account ID. HTTPS is required except loopback development. Redirects are refused so credentials cannot follow a redirect to another host.
+Relay the printed URL and code to the person exactly; do not open the URL from an unattended process. The code lasts ten minutes. The CLI polls no faster than the server's interval and stops on cancel, expiry or approval. On approval the server releases the token once; the CLI stores it in `KH_HOME/credentials.json` with mode 0600, then verifies `/api/v1/me`. `kh account disconnect` removes that file; revoking the connection itself happens in `/app/setup`.
+
+Alternative: a personal token created in `/app/setup` (shown once, 90-day expiry, revocable there). Provide it as `KH_TOKEN` through the host credential mechanism; when set, it is used instead of any stored approval and is never saved.
+
+Do not put a token in command arguments, chat, skills, source files or Git. Local `config.json` stores only the server origin, verified account ID and how the connection was made. HTTPS is required except loopback development. Redirects are refused so credentials cannot follow a redirect to another host.
 
 `account status` verifies `/api/v1/me` and returns server source preferences and the chosen rhythm/timezone. Read these during setup and check-ins. Reconcile them with the user's selected local sources and native schedule; they are configuration, not evidence that a connector or scheduler is running. Remote settings never silently overwrite local sources or schedules. Pause preferences must be honored by the agent.
 
@@ -36,6 +38,8 @@ Endpoints:
 
 | Endpoint | Implemented purpose |
 |---|---|
+| `POST /api/v1/agent-connect` | Anonymous: start browser approval; returns device code, user code, verification URL, interval |
+| `POST /api/v1/agent-connect/token` | Anonymous: poll with the device code; `pending`, `denied`, `expired` or one-time `approved` with the token |
 | `GET /api/v1/me` | Verify token, account and configured source/rhythm preferences |
 | `GET /api/v1/moments` | Read this account's Moments and Snapshots |
 | `POST /api/v1/moments` | Ingest a reviewed private text Moment |

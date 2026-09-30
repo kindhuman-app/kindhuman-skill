@@ -1,5 +1,27 @@
 import { createHash } from 'node:crypto';
+import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
+
+// Token resolution: KH_TOKEN from the host credential mechanism always wins.
+// Otherwise the token approved in the person's browser (kh account connect)
+// is read from KH_HOME/credentials.json, written with mode 0600.
+const TOKEN = /^kh_[A-Za-z0-9_-]{43}$/;
+let activeHome = null;
+export function useHome(home) { activeHome = home; }
+const credentialsPath = home => path.join(home, 'credentials.json');
+export function storedCredentials(home) {
+  try {
+    const value = JSON.parse(fs.readFileSync(credentialsPath(home), 'utf8'));
+    return TOKEN.test(value?.token || '') ? value : null;
+  } catch (e) { if (e.code === 'ENOENT') return null; throw e; }
+}
+function tokenValue() {
+  if (TOKEN.test(process.env.KH_TOKEN || '')) return process.env.KH_TOKEN;
+  const stored = activeHome && storedCredentials(activeHome);
+  if (stored) return stored.token;
+  throw new Error('No agent token. Run kh account connect --server https://YOUR_HOST and approve this agent in your signed-in browser, or provide KH_TOKEN through your credential manager.');
+}
 
 export function canonical(value) {
   if (value === null || typeof value === 'string' || typeof value === 'boolean') return JSON.stringify(value);
@@ -16,8 +38,7 @@ export function serverOrigin(value) {
   return u.origin;
 }
 export async function request(server, route, body) {
-  const token = process.env.KH_TOKEN;
-  if (!/^kh_[A-Za-z0-9_-]{43}$/.test(token || '')) throw new Error('Provide KH_TOKEN through your credential manager. Create an agent connection in /app/setup.');
+  const token = tokenValue();
   let res;
   try {
     res = await fetch(serverOrigin(server) + route, {
@@ -28,6 +49,43 @@ export async function request(server, route, body) {
   } catch { throw new Error('Server unavailable or request outcome uncertain. Keep the same capture ID and retry; no item was marked synced.'); }
   if (!res.ok) throw new Error(`KindHuman API HTTP ${res.status}. ${res.status === 401 ? 'Reconnect with an active agent token.' : res.status === 409 ? 'Content conflicts with a saved capture; inspect before retrying.' : 'Check the server and reviewed payload.'}`);
   try { return await res.json(); } catch { throw new Error('The server returned an invalid response; no item was marked synced.'); }
+}
+// Anonymous call used only by the browser-approval handoff.
+async function anonymous(server, route, body) {
+  let res;
+  try {
+    res = await fetch(serverOrigin(server) + route, { method: 'POST', redirect: 'error', signal: AbortSignal.timeout(20000), headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  } catch { throw new Error('Server unavailable while connecting. Check the server origin and retry.'); }
+  let json = {};
+  try { json = await res.json(); } catch { if (res.ok) throw new Error('The server returned an invalid response while connecting.'); }
+  return { status: res.status, json };
+}
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+// Device-code style handoff: the person approves in their own signed-in browser.
+// See the app's specs/kindhuman-v2/agent-handoff-contract.md.
+export async function browserApproval(server, { name, profileAccess }, log = m => console.error(m)) {
+  const start = await anonymous(server, '/api/v1/agent-connect', { name, profileAccess });
+  if (start.status === 404) throw new Error('This server does not offer browser approval yet. Create a token in /app/setup and provide it as KH_TOKEN.');
+  if (start.status !== 201) throw new Error(`Could not start the connection (HTTP ${start.status}). ${start.json.error || ''}`.trim());
+  const { deviceCode, userCode, verificationUrl, interval, expiresAt } = start.json;
+  if (!/^[A-Za-z0-9_-]{43}$/.test(deviceCode || '') || !/^[A-Z0-9]{4}-[A-Z0-9]{4}$/.test(userCode || '') || !verificationUrl) throw new Error('Unexpected connection start response.');
+  log(`Open ${verificationUrl} in the browser where you are signed in to KindHuman and confirm code ${userCode}. Waiting up to ten minutes; press Ctrl-C to stop.`);
+  const deadline = Math.min(Date.parse(expiresAt) || Infinity, Date.now() + 11 * 60 * 1000);
+  const wait = Math.max(1, Number(interval) || 5) * 1000;
+  while (Date.now() < deadline) {
+    await sleep(wait);
+    const poll = await anonymous(server, '/api/v1/agent-connect/token', { deviceCode });
+    if (poll.status === 429) continue;
+    if (poll.status === 410) throw new Error('This connection was already collected elsewhere. Start again.');
+    if (poll.status !== 200) throw new Error(`Connection check failed (HTTP ${poll.status}). ${poll.json.error || ''}`.trim());
+    const { status } = poll.json;
+    if (status === 'pending') continue;
+    if (status === 'denied') throw new Error('The connection was cancelled in the browser. Nothing was connected.');
+    if (status === 'expired') throw new Error('The code expired before it was approved. Run account connect again for a fresh code.');
+    if (status === 'approved' && TOKEN.test(poll.json.token || '')) return { token: poll.json.token, scopes: poll.json.scopes || [], name: poll.json.name || name, expiresAt: poll.json.expiresAt || null };
+    throw new Error('Unexpected connection response.');
+  }
+  throw new Error('The code expired before it was approved. Run account connect again for a fresh code.');
 }
 export async function identity(c) {
   if (!c.connection) throw new Error('Run kh account connect --server https://YOUR_HOST first.');
@@ -45,15 +103,32 @@ function payloadFor(r) {
   return payload;
 }
 export async function connectedCommand({command, action, flags, home, c, need, safeId, readJSON, writeJSON, output}) {
+  useHome(home);
   if (command === 'account') {
-    if (action === 'disconnect') { delete c.connection; writeJSON(path.join(home,'config.json'),c); return output({disconnected:true, tokenRevoked:false, next:'Revoke the token in /app/setup if no longer needed.'}); }
+    if (action === 'disconnect') {
+      delete c.connection; writeJSON(path.join(home,'config.json'),c);
+      let storedTokenRemoved = false;
+      try { fs.unlinkSync(credentialsPath(home)); storedTokenRemoved = true; } catch (e) { if (e.code !== 'ENOENT') throw e; }
+      return output({disconnected:true, storedTokenRemoved, tokenRevoked:false, next:'Revoke the connection in /app/setup if no longer needed.'});
+    }
     if (action === 'connect') {
       const server = serverOrigin(need(flags,'server'));
+      let via = 'KH_TOKEN', scopes = null;
+      if (!TOKEN.test(process.env.KH_TOKEN || '')) {
+        const stored = storedCredentials(home);
+        if (stored && stored.server === server) via = 'stored-approval';
+        else {
+          const name = String(flags.name || `kh on ${os.hostname()}`).trim().slice(0, 100);
+          const approval = await browserApproval(server, { name, profileAccess: flags.profile === true });
+          writeJSON(credentialsPath(home), { server, token: approval.token, scopes: approval.scopes, name: approval.name, expiresAt: approval.expiresAt, obtainedAt: new Date().toISOString() });
+          via = 'browser-approval'; scopes = approval.scopes;
+        }
+      }
       const me = await request(server, '/api/v1/me');
       if (typeof me.accountId !== 'string' || !me.accountId || me.uploadPolicy !== 'review-first') throw new Error('Server does not support the reviewed-upload contract.');
-      c.connection = {server,accountId:me.accountId,handle:me.handle,lastVerifiedAt:new Date().toISOString()};
+      c.connection = {server,accountId:me.accountId,handle:me.handle,via,lastVerifiedAt:new Date().toISOString()};
       writeJSON(path.join(home,'config.json'),c);
-      return output({connection:c.connection, settings:me, next:'Preview an item with kh upload preview. Previous local approvals do not authorize server upload.'});
+      return output({connection:c.connection, ...(scopes ? {scopes} : {}), settings:me, next:'Preview an item with kh upload preview. Previous local approvals do not authorize server upload.'});
     }
     if (action === 'status') return output({connection:c.connection,settings:await identity(c),verifiedAt:new Date().toISOString()});
     throw new Error('Use account connect, status or disconnect');

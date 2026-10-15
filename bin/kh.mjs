@@ -284,7 +284,13 @@ Default private local data: KH_HOME or ~/.kindhuman. Only upload send and profil
     if (command === 'collect') {
       const s = sourceById(c, need(flags, 'source'));
       if (s.paused) fail('This source is paused. Resume only at the user\'s request.');
-      if (!['file', 'folder'].includes(s.kind)) fail('This source needs an agent connector or an explicit export. Use kh capture after reading within the selected scope.');
+      if (!['file', 'folder'].includes(s.kind)) {
+        fail(
+          s.kind === 'web'
+            ? 'This link cannot be fetched by the text CLI. Paste the readable excerpt into a UTF-8 file and run kh capture --source ID --file PATH --origin URL, or use an agent tool within the selected scope.'
+            : 'This source needs an agent connector or an explicit export. Use kh capture after reading within the selected scope.',
+        );
+      }
       try {
         noSymlinks(s.locator);
         const files = s.kind === 'file' ? [s.locator] : fs.readdirSync(s.locator, { withFileTypes: true })

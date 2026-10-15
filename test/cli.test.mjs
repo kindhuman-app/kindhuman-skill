@@ -66,8 +66,78 @@ test('collection stays in selected folder and records unavailable source', t => 
 test('connector registration never claims that a remote source has been connected', t => {
   const { run, call } = setup(t);
   run('source', 'add', '--id', 'reading', '--kind', 'web', '--locator', 'https://example.com/saved', '--scope', 'Selected saved posts');
-  assert.notEqual(call('collect', '--source', 'reading').status, 0);
+  const failed = call('collect', '--source', 'reading');
+  assert.notEqual(failed.status, 0);
+  assert.match(failed.stderr, /Paste the readable excerpt|kh capture/i);
   assert.equal(run('source', 'list')[0].lastReadAt, null);
+});
+test('paste capture keeps original, proposed meaning and provenance; unread web falls back', t => {
+  const { base, home, run, call } = setup(t);
+  const pasted =
+    'I keep choosing the hard conversation because quiet resentment costs more than speaking up.';
+  const file = path.join(base, 'paste.txt');
+  fs.writeFileSync(file, pasted);
+  run(
+    'source',
+    'add',
+    '--id',
+    'words',
+    '--kind',
+    'paste',
+    '--locator',
+    'pasted-from-chat',
+    '--scope',
+    'Selected words from this conversation',
+  );
+  assert.notEqual(call('collect', '--source', 'words').status, 0);
+  const captured = run(
+    'capture',
+    '--source',
+    'words',
+    '--file',
+    file,
+    '--origin',
+    'pasted-from-chat',
+  );
+  assert.equal(captured.duplicate, false);
+  assert.ok(captured.readable.endsWith(`${captured.id}.md`));
+  const record = run('inbox', 'show', '--id', captured.id);
+  assert.equal(record.originalText, pasted);
+  assert.equal(record.source.kind, 'paste');
+  assert.equal(record.source.origin, 'pasted-from-chat');
+  assert.equal(record.state, 'pending-review');
+  const meaning = path.join(base, 'meaning.txt');
+  fs.writeFileSync(
+    meaning,
+    'Hard conversations matter more than quiet resentment.',
+  );
+  const edited = run('edit', '--id', captured.id, '--file', meaning);
+  assert.equal(edited.originalPreserved, pasted);
+  assert.equal(
+    edited.displayWords,
+    'Hard conversations matter more than quiet resentment.',
+  );
+  assert.equal(run('inbox', 'show', '--id', captured.id).originalText, pasted);
+  assert.equal(
+    fs.existsSync(path.join(home, 'inbox', `${captured.id}.json`)),
+    true,
+  );
+  run(
+    'source',
+    'add',
+    '--id',
+    'dead-link',
+    '--kind',
+    'web',
+    '--locator',
+    'https://example.invalid/unreadable',
+    '--scope',
+    'One article that will not load',
+  );
+  const unreadable = call('collect', '--source', 'dead-link');
+  assert.notEqual(unreadable.status, 0);
+  assert.match(unreadable.stderr, /cannot be fetched|Paste the readable excerpt/i);
+  assert.equal(run('source', 'list').find(s => s.id === 'dead-link').lastReadAt, null);
 });
 test('paused sources cannot be read or captured until explicitly resumed', t => {
   const { base, run, call } = setup(t);

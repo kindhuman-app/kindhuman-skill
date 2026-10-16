@@ -21,7 +21,7 @@ function args(values) {
     if (!values[i].startsWith('--')) { words.push(values[i]); continue; }
     const key = values[i].slice(2);
     if (key in flags) fail(`Repeated option --${key}`);
-    if (['global', 'dry-run', 'profile'].includes(key)) flags[key] = true;
+    if (['global', 'dry-run', 'profile', 'as-scheduled'].includes(key)) flags[key] = true;
     else {
       if (!values[i + 1] || values[i + 1].startsWith('--')) fail(`Missing value for --${key}`);
       flags[key] = values[++i];
@@ -48,6 +48,67 @@ function writeJSON(p, value) {
 }
 function readJSON(p) { noSymlinks(p); return JSON.parse(fs.readFileSync(p, 'utf8')); }
 function config(home) { return readJSON(path.join(home, 'config.json')); }
+/** Preference ≠ host registration. A saved rhythm becomes a local plan; only confirm marks the host. */
+function classifyRhythm(rhythm) {
+  const r = String(rhythm || '').trim().toLowerCase();
+  if (!r || /^(on[\s-]?demand|no check-in|deferred|none|not yet|stopped mid)/i.test(r))
+    return { mode: 'on-demand', intervalMs: null };
+  if (/weekly|every week|once a week/.test(r)) return { mode: 'recurring', intervalMs: 7 * 24 * 60 * 60 * 1000 };
+  if (/monthly|every month/.test(r)) return { mode: 'recurring', intervalMs: 30 * 24 * 60 * 60 * 1000 };
+  // Daily, weekdays, clock times, or any other explicit chosen schedule string.
+  return { mode: 'recurring', intervalMs: 24 * 60 * 60 * 1000 };
+}
+function buildSchedule(rhythm, timezone, at = new Date()) {
+  const kind = classifyRhythm(rhythm);
+  if (kind.mode === 'on-demand')
+    return {
+      state: 'on-demand',
+      hostRegistered: false,
+      paused: false,
+      nextDueAt: null,
+      lastFiredAt: null,
+      intervalMs: null,
+      preference: rhythm,
+      timezone,
+    };
+  return {
+    state: 'local-plan',
+    hostRegistered: false,
+    paused: false,
+    // First due is now so setup can run one scheduled check-in without faking host registration.
+    nextDueAt: at.toISOString(),
+    lastFiredAt: null,
+    intervalMs: kind.intervalMs,
+    preference: rhythm,
+    timezone,
+  };
+}
+function ensureSchedule(c) {
+  if (c.schedule && (c.schedule.state === 'on-demand' || c.schedule.state === 'local-plan' || c.schedule.state === 'host-confirmed'))
+    return c.schedule;
+  // Migrate legacy { state: 'not-registered' } from preference alone.
+  return buildSchedule(c.rhythm, c.timezone);
+}
+function isDue(schedule, at = new Date()) {
+  if (!schedule || schedule.state === 'on-demand' || !schedule.nextDueAt) return false;
+  if (schedule.paused) return false;
+  return new Date(schedule.nextDueAt).getTime() <= at.getTime();
+}
+function fireScheduled(schedule, at = new Date()) {
+  if (schedule.paused) fail('Check-in rhythm is paused. Resume only at the person\'s request.');
+  if (schedule.state === 'on-demand')
+    fail('This home is on-demand. Choose a recurring rhythm before firing a scheduled check-in.');
+  if (schedule.lastFiredAt) {
+    const elapsed = at.getTime() - new Date(schedule.lastFiredAt).getTime();
+    if (elapsed < (schedule.intervalMs || 0) * 0.5)
+      fail('A scheduled check-in already ran in this window. No piled-up reminders.');
+  }
+  if (!isDue(schedule, at) && schedule.nextDueAt)
+    fail(`Not due yet. Next local due: ${schedule.nextDueAt}`);
+  schedule.lastFiredAt = at.toISOString();
+  schedule.nextDueAt = new Date(at.getTime() + (schedule.intervalMs || 24 * 60 * 60 * 1000)).toISOString();
+  return schedule;
+}
 async function locked(home, fn) {
   noSymlinks(home);
   fs.mkdirSync(home, { recursive: true, mode: 0o700 });
@@ -207,8 +268,9 @@ async function run() {
     install: ['agent', 'global', 'project', 'dry-run'], uninstall: ['agent', 'global', 'project'], init: ['home', 'timezone', 'rhythm', 'style', 'lens'],
     source: ['home', 'id', 'kind', 'locator', 'scope'], collect: ['home', 'source'],
     capture: ['home', 'source', 'file', 'origin'], edit: ['home', 'id', 'file'], inbox: ['home', 'id'],
-    review: ['home', 'id', 'digest', 'decision'], 'check-in': ['home'], status: ['home'],
-    'schedule-prompt': ['home'], account: ['home','server','name','profile'], upload: ['home','id','hash'], moments: ['home','id'], profile: ['home','hash'], help: []
+    review: ['home', 'id', 'digest', 'decision'], 'check-in': ['home', 'as-scheduled'], status: ['home'],
+    'schedule-prompt': ['home'], schedule: ['home', 'next-run', 'host'],
+    account: ['home','server','name','profile'], upload: ['home','id','hash'], moments: ['home','id'], profile: ['home','hash'], help: []
   };
   if (!command || command === 'help') {
     console.log(`KindHuman ${VERSION}: local capture, account connection and reviewed private uploads.
@@ -227,8 +289,10 @@ kh inbox export-md [--id ID] [--home PATH]  # write/refresh the readable .md cop
 kh inbox sync-md [--id ID] [--home PATH]    # pull edits and facets from .md into the record
 kh review --id ID [--home PATH]             # checkbox review from the readable .md
 kh review --id ID --digest SHA256 --decision approve|dismiss [--home PATH]
-kh check-in [--home PATH]
-kh schedule-prompt [--home PATH]
+kh check-in [--as-scheduled] [--home PATH]  # --as-scheduled fires the local plan when due; never piles reminders
+kh schedule-prompt [--home PATH]            # host registration prompt; preference ≠ registered
+kh schedule pause|resume|status [--home PATH]
+kh schedule confirm --next-run ISO8601 [--host cursor|codex|muse] [--home PATH]  # after the host shows a real schedule
 kh status [--home PATH]
 kh account connect --server https://YOUR_HOST [--name AGENT_NAME] [--profile] [--home PATH] # prints a code to approve in the person's signed-in browser; KH_TOKEN, if set, is used instead
 kh account status|disconnect [--home PATH] # disconnect also removes the stored approval; revoke in /app/setup
@@ -239,12 +303,12 @@ kh profile init|show|preview|send [--home PATH]
 kh profile approve --hash REVIEW_HASH [--home PATH] # only after human approval
 kh moments list [--home PATH]
 kh moments show --id SERVER_ID [--home PATH]
-Default private local data: KH_HOME or ~/.kindhuman. Only upload send and profile send transfer reviewed content. No command registers a schedule.`);
+Default private local data: KH_HOME or ~/.kindhuman. Only upload send and profile send transfer reviewed content. A saved rhythm is a local plan until the host confirms registration.`);
     return;
   }
   if (!allowed[command]) fail(`Unknown command: ${command}`);
   for (const key of Object.keys(flags)) if (!allowed[command].includes(key)) fail(`Unknown option --${key} for ${command}`);
-  if (words.length > (['source', 'inbox', 'edit', 'account', 'upload', 'moments', 'profile'].includes(command) ? 2 : 1)) fail('Unexpected positional argument');
+  if (words.length > (['source', 'inbox', 'edit', 'account', 'upload', 'moments', 'profile', 'schedule'].includes(command) ? 2 : 1)) fail('Unexpected positional argument');
   if (command === 'install') return install(flags);
   if (command === 'uninstall') return uninstall(flags);
   const home = path.resolve(flags.home || process.env.KH_HOME || path.join(os.homedir(), '.kindhuman'));
@@ -257,10 +321,25 @@ Default private local data: KH_HOME or ~/.kindhuman. Only upload send and profil
       if (!style || style.length > 120 || !lens || lens.length > 160) fail('Keep communication style and Q&A lens short and explicit.');
       new Intl.DateTimeFormat('en', { timeZone: timezone }).format();
       if (exists(path.join(home, 'config.json'))) fail('Already initialized. Existing settings were not overwritten.');
-      writeJSON(path.join(home, 'config.json'), { version: 1, timezone, rhythm, style, lens, uploadPolicy: 'review-first', sources: [], schedule: { state: 'not-registered' } });
-      return output({ home, style, lens, next: 'Add a selected source, capture a real item, run a local Q&A, then decide whether to connect an account for upload.' });
+      const schedule = buildSchedule(rhythm, timezone);
+      writeJSON(path.join(home, 'config.json'), { version: 1, timezone, rhythm, style, lens, uploadPolicy: 'review-first', sources: [], schedule });
+      return output({
+        home,
+        style,
+        lens,
+        schedule: {
+          state: schedule.state,
+          hostRegistered: schedule.hostRegistered,
+          nextDueAt: schedule.nextDueAt,
+          paused: schedule.paused,
+        },
+        next: schedule.state === 'on-demand'
+          ? 'On-demand home: check in when they ask. Add a source, capture, then decide on upload.'
+          : 'Local plan is due for a first check-in. Register it on the host with schedule-prompt, or run check-in --as-scheduled when due.',
+      });
     }
     const c = config(home);
+    c.schedule = ensureSchedule(c);
     if (command === 'profile') return profileCommand({action,flags,home,c,need,safeId,readJSON,writeJSON,output});
     if (['account','upload','moments'].includes(command)) return connectedCommand({command,action,flags,home,c,need,safeId,readJSON,writeJSON,output});
     if (command === 'source') {
@@ -377,14 +456,135 @@ Default private local data: KH_HOME or ~/.kindhuman. Only upload send and profil
       if (exists(mdPath(home, r.id)) || decision === 'approve') writeMarkdown(home, r);
       return output({ id: r.id, state: r.state, uploaded: false, next: 'Approval records a human decision; it is not an upload. Use account connect and upload preview to obtain a separate account-bound upload approval.' });
     }
+    if (command === 'schedule') {
+      if (!action || action === 'status') {
+        writeJSON(path.join(home, 'config.json'), c);
+        return output({
+          preference: c.rhythm,
+          timezone: c.timezone,
+          state: c.schedule.state,
+          hostRegistered: !!c.schedule.hostRegistered,
+          paused: !!c.schedule.paused,
+          due: isDue(c.schedule),
+          nextDueAt: c.schedule.nextDueAt || null,
+          lastFiredAt: c.schedule.lastFiredAt || null,
+          host: c.schedule.host || null,
+          note: c.schedule.hostRegistered
+            ? 'Host confirmed a schedule; still respect pause and never pile missed runs.'
+            : 'Local plan only. Preference is not host registration until schedule confirm.',
+        });
+      }
+      if (action === 'pause') {
+        if (c.schedule.state === 'on-demand') fail('On-demand homes have nothing to pause.');
+        c.schedule.paused = true;
+        writeJSON(path.join(home, 'config.json'), c);
+        return output({ paused: true, nextDueAt: c.schedule.nextDueAt, hostRegistered: !!c.schedule.hostRegistered });
+      }
+      if (action === 'resume') {
+        if (c.schedule.state === 'on-demand') fail('On-demand homes have nothing to resume.');
+        c.schedule.paused = false;
+        writeJSON(path.join(home, 'config.json'), c);
+        return output({ paused: false, due: isDue(c.schedule), nextDueAt: c.schedule.nextDueAt, hostRegistered: !!c.schedule.hostRegistered });
+      }
+      if (action === 'confirm') {
+        const nextRun = need(flags, 'next-run');
+        if (Number.isNaN(new Date(nextRun).getTime())) fail('--next-run must be an ISO-8601 timestamp from the host schedule.');
+        if (c.schedule.state === 'on-demand') fail('Confirm only after the person chooses a recurring rhythm.');
+        c.schedule.hostRegistered = true;
+        c.schedule.state = 'host-confirmed';
+        c.schedule.nextDueAt = new Date(nextRun).toISOString();
+        c.schedule.host = flags.host ? String(flags.host) : (c.schedule.host || null);
+        c.schedule.confirmedAt = now();
+        writeJSON(path.join(home, 'config.json'), c);
+        return output({
+          registered: true,
+          hostRegistered: true,
+          nextDueAt: c.schedule.nextDueAt,
+          host: c.schedule.host,
+          note: 'Host registration recorded from an explicit next-run. Preference alone never set this.',
+        });
+      }
+      fail('Use schedule status, pause, resume or confirm');
+    }
     if (command === 'check-in') {
       const pending = records(home).filter(r => r.state === 'pending-review');
-      return output({ style: c.style, lens: c.lens, pending: pending.map(r => ({ id: r.id, source: r.source.id })), sourceErrors: c.sources.filter(s => s.lastError), invitation: pending.length ? `Something new is waiting. In a ${c.style} voice, sit with one piece and ask what part of it they want to keep — then leave ops unless they ask.` : `Using a ${c.style} voice and ${c.lens} lens: what stayed with you today?`, uploadAllowed: false });
+      const invitation = pending.length
+        ? `Something new is waiting. In a ${c.style} voice, sit with one piece and ask what part of it they want to keep — then leave ops unless they ask.`
+        : `Using a ${c.style} voice and ${c.lens} lens: what stayed with you today?`;
+      let scheduled = false;
+      if (flags['as-scheduled']) {
+        fireScheduled(c.schedule);
+        scheduled = true;
+        writeJSON(path.join(home, 'config.json'), c);
+      } else {
+        // Persist migrated local-plan so status matches preference without claiming registration.
+        writeJSON(path.join(home, 'config.json'), c);
+      }
+      return output({
+        style: c.style,
+        lens: c.lens,
+        pending: pending.map(r => ({ id: r.id, source: r.source.id })),
+        sourceErrors: c.sources.filter(s => s.lastError),
+        invitation,
+        uploadAllowed: false,
+        scheduled,
+        due: isDue(c.schedule),
+        paused: !!c.schedule.paused,
+        hostRegistered: !!c.schedule.hostRegistered,
+        nextDueAt: c.schedule.nextDueAt || null,
+        lastFiredAt: c.schedule.lastFiredAt || null,
+        scheduleState: c.schedule.state,
+      });
     }
     if (command === 'schedule-prompt') {
-      return output({ rhythm: c.rhythm, timezone: c.timezone, style: c.style, lens: c.lens, registered: false, prompt: `Run kindhuman-check-in in a ${c.style} voice (${c.lens}). Thinking is home: deliver one thoughtful invitation on every scheduled run, including when no new material exists. Visit ops briefly to gather in-scope sources, then return to meaning — never end on status. Keep everything local until they review an exact upload. Never approve for them. Report unavailable sources honestly. Respect pauses; do not pile missed check-ins.`, home });
+      writeJSON(path.join(home, 'config.json'), c);
+      return output({
+        rhythm: c.rhythm,
+        timezone: c.timezone,
+        style: c.style,
+        lens: c.lens,
+        registered: !!c.schedule.hostRegistered,
+        hostRegistered: !!c.schedule.hostRegistered,
+        plan: {
+          state: c.schedule.state,
+          paused: !!c.schedule.paused,
+          due: isDue(c.schedule),
+          nextDueAt: c.schedule.nextDueAt || null,
+          lastFiredAt: c.schedule.lastFiredAt || null,
+        },
+        prompt: `Run kindhuman-check-in in a ${c.style} voice (${c.lens}). Thinking is home: deliver one thoughtful invitation on every scheduled run, including when no new material exists. Visit ops briefly to gather in-scope sources, then return to meaning — never end on status. Keep everything local until they review an exact upload. Never approve for them. Report unavailable sources honestly. Respect pauses; do not pile missed check-ins. Preference is a local plan until the host confirms a real next run.`,
+        home,
+      });
     }
-    if (command === 'status') return output({ home, uploadPolicy: c.uploadPolicy, schedule: c.schedule, rhythm: c.rhythm, timezone: c.timezone, style: c.style, lens: c.lens, sources: c.sources, pending: records(home).filter(r => r.state === 'pending-review').length, approvedLocal: records(home).filter(r => r.state === 'approved-local').length, server: c.connection || 'not-connected', synced: records(home).filter(r => r.upload?.state === 'synced').length, liveMomentVerified: false, skillInstalls: skillInstalls(), note: 'Local status only. Use account status for live authentication; synced items carry their last read-back time.' });
+    if (command === 'status') {
+      writeJSON(path.join(home, 'config.json'), c);
+      return output({
+        home,
+        uploadPolicy: c.uploadPolicy,
+        schedule: {
+          state: c.schedule.state,
+          hostRegistered: !!c.schedule.hostRegistered,
+          paused: !!c.schedule.paused,
+          due: isDue(c.schedule),
+          nextDueAt: c.schedule.nextDueAt || null,
+          lastFiredAt: c.schedule.lastFiredAt || null,
+          host: c.schedule.host || null,
+          preference: c.rhythm,
+        },
+        rhythm: c.rhythm,
+        timezone: c.timezone,
+        style: c.style,
+        lens: c.lens,
+        sources: c.sources,
+        pending: records(home).filter(r => r.state === 'pending-review').length,
+        approvedLocal: records(home).filter(r => r.state === 'approved-local').length,
+        server: c.connection || 'not-connected',
+        synced: records(home).filter(r => r.upload?.state === 'synced').length,
+        liveMomentVerified: false,
+        skillInstalls: skillInstalls(),
+        note: 'Local status only. A saved rhythm is a local plan until schedule confirm. Use account status for live authentication.',
+      });
+    }
   });
 }
 try { await run(); } catch (e) { console.error(`KindHuman: ${e.message}`); process.exitCode = 1; }

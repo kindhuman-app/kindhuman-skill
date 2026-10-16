@@ -5,6 +5,8 @@ description: "Internal mode, carried inside kindhuman-start and kindhuman-check-
 
 # kindhuman-reflect
 
+Internal current only — never a destination the person navigates to. Start and check-in carry this mode; the person should not name or select it. They may slip into ops (edit a path, approve a box) and slip back here without ceremony.
+
 Read the contract. Inspect the original candidate and attribution. Offer a short, tentative observation and one optional question, using the person's vocabulary. Avoid diagnoses, manufactured emotions and forced lessons.
 
 Connections require two real accessible records and a concrete explanation grounded in them. Label a connection as suggested until the person accepts it. A reading excerpt remains attributed to its author even when the person reflects on it.
